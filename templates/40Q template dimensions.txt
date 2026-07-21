@@ -1,0 +1,11 @@
+40Q template dimensions:
+
+Rect(0.0, 0.0, 595.2755737304688, 841.8897705078125)
+
+marker size :
+Marker width  : 15px
+Marker height : 17px
+Marker area   : 255px²
+Diagonal      : 22.7px
+
+

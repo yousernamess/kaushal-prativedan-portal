@@ -1,0 +1,6 @@
+no the teacher wont create exam on the frontend, this is how i imagine it to wokr:
+
+teacher goes to a portal selects grade, school, class, batch year (eg 2025-2026) and question paper type: either baseline (taken at the start of the curriculum) or endline(end of the curriculum) and then the teacher uploads scanned OMR answer sheets of all students along with an answer key.
+
+then the OMR system scans and checks everyone's answer sheet in rollnumber order (assume the omr sheets are named with the student roll number) in accordance to the answer key and creates an Asset style report card for each student as the questions are of various categories: understandin, reasoning, application etc. (will tell you their details when we reach there) and each option has a certain meaning too (i.e for e.g say there are options a b c d - where a and b are really close c is of a different concept and d is just wrong - so we will gain insight from the option ticked too)
+then the teacher can print the report cards or view them on the portal or batch download per section or class
