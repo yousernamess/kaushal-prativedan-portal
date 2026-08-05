@@ -1,30 +1,85 @@
+# -----------------------------
 # Python
+# -----------------------------
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
 .Python
+
+# Virtual environments
 env/
 venv/
 .venv/
 
-# Output directories
+# Python tooling
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# -----------------------------
+# Environment variables
+# -----------------------------
+.env
+.env.*
+!.env.example
+
+# -----------------------------
+# Backend output
+# -----------------------------
 backend/output/
 omrExtractor/output/
 
-# Environment variables
-.env
-.env.local
+# Uploaded temporary files
+backend/uploads/
+backend/temp/
+backend/tmp/
 
+# Generated reports (if ever generated locally)
+backend/reports/
+
+# SQLite (just in case)
+*.db
+*.sqlite3
+
+# -----------------------------
+# React / Node
+# -----------------------------
+node_modules/
+
+dist/
+build/
+
+# Vite cache
+.vite/
+
+# npm / pnpm / yarn logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# -----------------------------
 # IDE
+# -----------------------------
 .vscode/
 .idea/
 *.swp
 *.swo
 
+# -----------------------------
 # OS
+# -----------------------------
 .DS_Store
 Thumbs.db
 
-# Byte-compiled
-*.pyc
+# -----------------------------
+# Misc
+# -----------------------------
+*.log
+
+# npm cache
+.npm-cache/
+frontend/.npm-cache/
