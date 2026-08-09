@@ -15,7 +15,6 @@ depends_on = None
 
 def upgrade() -> None:
     assessment_type = sa.Enum("BASELINE", "ENDLINE", name="assessmenttype")
-    assessment_type.create(op.get_bind(), checkfirst=True)
     op.create_table("schools", sa.Column("id", sa.Integer(), primary_key=True), sa.Column("name", sa.String(200), nullable=False), sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()")), sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.text("now()")))
     op.create_index("ix_schools_name", "schools", ["name"], unique=True)
     op.create_table("academic_years", sa.Column("id", sa.Integer(), primary_key=True), sa.Column("name", sa.String(9), nullable=False), sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()")), sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.text("now()")))

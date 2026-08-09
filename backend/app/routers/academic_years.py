@@ -31,7 +31,15 @@ def create_year(payload: AcademicYearCreate, db: Session = Depends(get_db)):
 
 @router.put("/{item_id}", response_model=AcademicYearRead)
 def update_year(item_id: int, payload: AcademicYearUpdate, db: Session = Depends(get_db)):
-    item = item_or_404(item_id, db); item.name = payload.name; db.commit(); db.refresh(item); return item
+    item = item_or_404(item_id, db)
+    item.name = payload.name
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(409, "This academic year already exists")
+    db.refresh(item)
+    return item
 
 
 @router.delete("/{item_id}", status_code=status.HTTP_204_NO_CONTENT)

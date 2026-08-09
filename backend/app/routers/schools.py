@@ -1,9 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session, selectinload
+from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.models import School
+from app.models import School, Section, Student
 from app.schemas import SchoolCreate, SchoolRead, SchoolUpdate
 
 router = APIRouter(prefix="/schools", tags=["Schools"])
@@ -17,8 +18,24 @@ def school_or_404(school_id: int, db: Session) -> School:
 
 
 @router.get("", response_model=list[SchoolRead])
-def list_schools(db: Session = Depends(get_db)) -> list[School]:
-    return db.query(School).options(selectinload(School.students), selectinload(School.sections)).order_by(School.name).all()
+def list_schools(db: Session = Depends(get_db)) -> list[SchoolRead]:
+    schools = db.query(School).order_by(School.name).all()
+    student_counts = dict(
+        db.query(Student.school_id, func.count(Student.id))
+        .group_by(Student.school_id).all()
+    )
+    section_counts = dict(
+        db.query(Section.school_id, func.count(Section.id))
+        .group_by(Section.school_id).all()
+    )
+    return [
+        SchoolRead(
+            id=s.id, name=s.name, created_at=s.created_at, updated_at=s.updated_at,
+            student_count=student_counts.get(s.id, 0),
+            section_count=section_counts.get(s.id, 0),
+        )
+        for s in schools
+    ]
 
 
 @router.post("", response_model=SchoolRead, status_code=status.HTTP_201_CREATED)
@@ -35,8 +52,16 @@ def create_school(payload: SchoolCreate, db: Session = Depends(get_db)) -> Schoo
 
 
 @router.get("/{school_id}", response_model=SchoolRead)
-def get_school(school_id: int, db: Session = Depends(get_db)) -> School:
-    return db.query(School).options(selectinload(School.students), selectinload(School.sections)).filter(School.id == school_id).first() or school_or_404(school_id, db)
+def get_school(school_id: int, db: Session = Depends(get_db)) -> SchoolRead:
+    school = db.get(School, school_id)
+    if not school:
+        raise HTTPException(404, "School not found")
+    student_count = db.query(func.count(Student.id)).filter(Student.school_id == school_id).scalar() or 0
+    section_count = db.query(func.count(Section.id)).filter(Section.school_id == school_id).scalar() or 0
+    return SchoolRead(
+        id=school.id, name=school.name, created_at=school.created_at, updated_at=school.updated_at,
+        student_count=student_count, section_count=section_count,
+    )
 
 
 @router.put("/{school_id}", response_model=SchoolRead)
