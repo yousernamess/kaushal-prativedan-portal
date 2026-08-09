@@ -1,46 +1,47 @@
 # TASKS.md
 
-## Milestone 1
+## Milestone 1 — Foundation ✅
 
-* [ ] Create repository
-* [ ] Setup FastAPI
-* [ ] Setup React
-* [ ] Setup PostgreSQL (Railway)
-* [ ] Configure Alembic
-* [ ] Environment variables
-* [ ] Health endpoint
-
----
-
-## Milestone 2
-
-Master Data
-
-* [ ] School CRUD
-* [ ] Academic Year CRUD
-* [ ] Section CRUD
-* [ ] Student CRUD
-* [ ] Student CSV Import
-* [ ] Validation
+* [x] Create repository
+* [x] Setup FastAPI
+* [x] Setup React
+* [x] Setup PostgreSQL (Railway)
+* [x] Configure Alembic
+* [x] Environment variables
+* [x] Health endpoint
 
 ---
 
-## Milestone 3
+## Milestone 2 — Master Data ✅
 
-Assessments
-
-* [ ] Assessment CRUD
-* [ ] Baseline / Endline
-* [ ] Question CRUD
-* [ ] Duplicate Assessment
-* [ ] Edit Assessment
-* [ ] Delete Assessment
+* [x] School CRUD (backend + frontend)
+* [x] Academic Year CRUD (backend + frontend)
+* [x] Section CRUD (backend + frontend, bulk create)
+* [x] Student CRUD (backend + frontend, search + filters)
+* [x] Student CSV Import (row-level validation)
+* [x] Student CSV Export (filtered)
+* [x] Validation (IntegrityError handling, 409 responses)
+* [x] UX overhaul (dropdowns, cascading selects, empty states, loading states, compact actions)
+* [x] School delete with bulk student removal and force delete
+* [x] Master Data page consolidation (4 tabs → 1 page)
 
 ---
 
-## Milestone 4
+## Milestone 3 — Assessments
 
-Process OMR
+Backend ✅ / Frontend ⬜
+
+* [x] Assessment CRUD (backend)
+* [x] Baseline / Endline types
+* [x] Question CRUD (backend)
+* [x] Duplicate Assessment (backend)
+* [x] Edit Assessment (backend)
+* [x] Delete Assessment (soft delete, backend)
+* [ ] Assessment frontend page (placeholder)
+
+---
+
+## Milestone 4 — Process OMR ⬜
 
 * [ ] Create Assessment Session
 * [ ] Wizard UI
@@ -50,9 +51,7 @@ Process OMR
 
 ---
 
-## Milestone 5
-
-OMR Integration
+## Milestone 5 — OMR Integration ⬜
 
 * [ ] Connect existing OMR module
 * [ ] Parse returned JSON
@@ -63,9 +62,7 @@ OMR Integration
 
 ---
 
-## Milestone 6
-
-Analytics
+## Milestone 6 — Analytics ⬜
 
 * [ ] Score
 * [ ] Percentage
@@ -78,9 +75,7 @@ Analytics
 
 ---
 
-## Milestone 7
-
-Reports
+## Milestone 7 — Reports ⬜
 
 * [ ] Student report page
 * [ ] Radar chart
@@ -90,9 +85,7 @@ Reports
 
 ---
 
-## Milestone 8
-
-Dashboard
+## Milestone 8 — Dashboard ⬜
 
 * [ ] Statistics
 * [ ] Recent activity
@@ -100,9 +93,7 @@ Dashboard
 
 ---
 
-## Milestone 9
-
-Deployment
+## Milestone 9 — Deployment ⬜
 
 * [ ] Railway Backend
 * [ ] Railway PostgreSQL

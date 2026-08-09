@@ -1,182 +1,487 @@
 # API.md
 
-# Authentication
-
-POST /login
-
-POST /logout
-
-GET /me
+Base URL: `http://127.0.0.1:8000`
 
 ---
 
-# Dashboard
+## Health
 
-GET /dashboard
+### GET /health
 
-Returns
-
-* Total schools
-* Total students
-* Total assessments
-* Total attempts
-* Recent activity
+Returns `{"status": "ok"}`
 
 ---
 
-# Schools
+## Schools
 
-GET /schools
+### GET /schools
 
-GET /schools/{id}
+Returns list of all schools with student/section counts.
 
-POST /schools
+**Response:** `SchoolRead[]`
 
-PUT /schools/{id}
+```json
+[
+  {
+    "id": 1,
+    "name": "Sunrise Public School",
+    "created_at": "2026-08-09T11:35:48.216178Z",
+    "updated_at": "2026-08-09T11:35:48.216178Z",
+    "student_count": 12,
+    "section_count": 3
+  }
+]
+```
 
-DELETE /schools/{id}
+### GET /schools/{school_id}
 
----
+Returns a single school with counts.
 
-# Academic Years
+**Response:** `SchoolRead`
 
-GET /academic-years
+### POST /schools
 
-POST /academic-years
+Create a new school.
 
-PUT /academic-years/{id}
+**Request:** `{"name": "Sunrise Public School"}`
 
-DELETE /academic-years/{id}
+**Response:** `SchoolRead` (201)
 
----
+**Errors:**
+- 409: "A school with this name already exists"
 
-# Students
+### PUT /schools/{school_id}
 
-GET /students
+Update a school name.
 
-Supports filters
+**Request:** `{"name": "New Name"}`
 
-* school
-* class
-* section
+**Response:** `SchoolRead`
 
-POST /students
+**Errors:**
+- 404: "School not found"
+- 409: "A school with this name already exists"
 
-PUT /students/{id}
+### DELETE /schools/{school_id}
 
-DELETE /students/{id}
+Delete a school. Blocked if school has students.
 
-POST /students/import
+**Query params:** `force` (bool, default false)
 
-Bulk CSV import.
+- `force=false`: Returns 409 if school has students
+- `force=true`: Deletes all students, sections, and the school
 
----
+**Response:** 204 No Content
 
-# Sections
+**Errors:**
+- 404: "School not found"
+- 409: "Cannot delete a school that has students" (when force=false and school has students)
 
-GET /sections
+### DELETE /schools/{school_id}/students
 
-POST /sections
+Bulk remove all students from a school.
 
-PUT /sections/{id}
+**Response:** `{"deleted": N}`
 
-DELETE /sections/{id}
-
----
-
-# Assessments
-
-GET /assessments
-
-GET /assessments/{id}
-
-POST /assessments
-
-PUT /assessments/{id}
-
-DELETE /assessments/{id}
-
-POST /assessments/{id}/duplicate
-
----
-
-# Questions
-
-POST /assessments/{id}/questions
-
-PUT /questions/{id}
-
-DELETE /questions/{id}
+**Errors:**
+- 404: "School not found"
 
 ---
 
-# Assessment Sessions
+## Academic Years
 
-POST /assessment-sessions
+### GET /academic-years
 
-GET /assessment-sessions
+Returns all academic years, ordered by name descending.
 
-GET /assessment-sessions/{id}
+**Response:** `AcademicYearRead[]`
+
+```json
+[
+  {"id": 1, "name": "2026-27"}
+]
+```
+
+### POST /academic-years
+
+Create a new academic year.
+
+**Request:** `{"name": "2026-27"}`
+
+**Validation:** Name must match `YYYY-YY` pattern.
+
+**Response:** `AcademicYearRead` (201)
+
+**Errors:**
+- 409: "This academic year already exists"
+
+### PUT /academic-years/{item_id}
+
+Update an academic year.
+
+**Request:** `{"name": "2027-28"}`
+
+**Response:** `AcademicYearRead`
+
+**Errors:**
+- 404: "Academic year not found"
+- 409: "This academic year already exists"
+
+### DELETE /academic-years/{item_id}
+
+Delete an academic year.
+
+**Response:** 204 No Content
+
+**Errors:**
+- 404: "Academic year not found"
 
 ---
 
-# OMR
+## Sections
 
-POST /process-omr
+### GET /sections
 
-Input
+Returns sections, optionally filtered.
 
-* Assessment Session
-* Images
+**Query params:**
+- `school_id` (int, optional)
+- `class_number` (int, optional)
 
-Output
+**Response:** `SectionRead[]`
 
-* Success count
-* Failed count
-* Student attempts
+```json
+[
+  {"id": 1, "school_id": 1, "class_number": 6, "section_name": "A"}
+]
+```
+
+### POST /sections
+
+Create a single section.
+
+**Request:** `{"school_id": 1, "class_number": 6, "section_name": "A"}`
+
+**Validation:** `class_number` must be 6, 7, or 8.
+
+**Response:** `SectionRead` (201)
+
+**Errors:**
+- 409: "This section already exists"
+- 422: "School does not exist"
+
+### POST /sections/bulk
+
+Bulk create sections.
+
+**Request:**
+```json
+{
+  "school_id": 1,
+  "class_number": 6,
+  "section_names": "A, B, C"
+}
+```
+
+**Validation:**
+- `class_number` must be 6, 7, or 8
+- `section_names` must be comma-separated, non-empty
+- Duplicate names within the same request are rejected
+- Existing sections for the same school/class are rejected
+
+**Response:** `SectionRead[]` (201)
+
+**Errors:**
+- 409: "Sections already exist: B, C"
+- 422: "School does not exist"
+- 422: "Enter one or more unique comma-separated section names"
+
+### PUT /sections/{item_id}
+
+Update a section.
+
+**Request:** `{"school_id": 1, "class_number": 6, "section_name": "B"}`
+
+**Response:** `SectionRead`
+
+**Errors:**
+- 404: "Section not found"
+- 409: "This section already exists"
+- 422: "School does not exist"
+
+### DELETE /sections/{item_id}
+
+Delete a section.
+
+**Response:** 204 No Content
+
+**Errors:**
+- 404: "Section not found"
 
 ---
 
-# Reports
+## Students
 
-GET /reports
+### GET /students
 
-Supports filters
+Returns students, optionally filtered.
 
-School
+**Query params:**
+- `search` (string, optional) — searches by name or roll number
+- `school_id` (int, optional)
+- `class_number` (int, optional)
+- `section` (string, optional)
 
-Academic Year
+**Response:** `StudentRead[]`
 
-Class
+```json
+[
+  {
+    "id": 1,
+    "school_id": 1,
+    "roll_number": 14,
+    "student_name": "Rahul Patel",
+    "current_class": 6,
+    "current_section": "A",
+    "school_name": "Sunrise Public School"
+  }
+]
+```
 
-Assessment
+### POST /students
 
-Student
+Create a student.
 
-GET /reports/{attempt_id}
+**Request:**
+```json
+{
+  "school_id": 1,
+  "roll_number": 14,
+  "student_name": "Rahul Patel",
+  "current_class": 6,
+  "current_section": "A"
+}
+```
 
-GET /reports/{attempt_id}/pdf
+**Validation:**
+- `roll_number` must be > 0
+- `current_class` must be 6, 7, or 8
+- `student_name` must be 1–200 chars
+- `current_section` must be 1–20 chars
+
+**Response:** `StudentRead` (201)
+
+**Errors:**
+- 409: "This roll number is already in use at this school"
+- 422: "School does not exist"
+
+### PUT /students/{item_id}
+
+Update a student.
+
+**Request:** Same as POST.
+
+**Response:** `StudentRead`
+
+**Errors:**
+- 404: "Student not found"
+- 409: "This roll number is already in use at this school"
+- 422: "School does not exist"
+
+### DELETE /students/{item_id}
+
+Delete a student.
+
+**Response:** 204 No Content
+
+**Errors:**
+- 404: "Student not found"
+
+### POST /students/import
+
+Import students from CSV.
+
+**Request:** `multipart/form-data` with `file` field.
+
+**CSV columns:** `Roll Number, Student Name, School, Class, Section`
+
+**Response:**
+```json
+{
+  "created": 241,
+  "skipped": 7,
+  "errors": [
+    {"row": 18, "errors": ["School \"ABC School\" not found"]},
+    {"row": 42, "errors": ["Section \"D\" does not exist for Class 7 at \"Sunrise\""]},
+    {"row": 91, "errors": ["Roll number 14 already exists in this school"]}
+  ]
+}
+```
+
+**Validation per row:**
+- School exists (case-insensitive)
+- Roll Number is a positive integer
+- Student Name is non-empty
+- Class is 6, 7, or 8
+- Section exists for that school/class
+- Duplicate roll numbers within CSV are caught
+
+**Errors:**
+- 422: "Upload a CSV file"
+- 422: "CSV must contain: Roll Number, Student Name, School, Class, Section"
+- 409: "Import contains students that already exist in the database"
+
+### GET /students/export/csv
+
+Export students as CSV, optionally filtered.
+
+**Query params:**
+- `school_id` (int, optional)
+- `class_number` (int, optional)
+- `section` (string, optional)
+
+**Response:** `text/csv` with headers `Roll Number, Student Name, School, Class, Section`
 
 ---
 
-# Analytics
+## Assessments
 
-GET /analytics/student/{attempt_id}
+### GET /assessments
 
-Returns
+Returns assessments (excluding soft-deleted).
 
-Student Score
+**Query params:**
+- `academic_year_id` (int, optional)
+- `class_number` (int, optional)
 
-School Average
+**Response:** `AssessmentRead[]`
 
-Overall Average
+```json
+[
+  {
+    "id": 1,
+    "name": "Science Baseline 2026",
+    "assessment_type": "Baseline",
+    "academic_year_id": 1,
+    "class_number": 6,
+    "is_deleted": false,
+    "questions": [
+      {"id": 1, "question_number": 1, "correct_option": "A", "domain": "Understanding"}
+    ]
+  }
+]
+```
 
-School Rank
+### GET /assessments/{assessment_id}
 
-Overall Rank
+Returns a single assessment with questions.
 
-Percentile
+**Response:** `AssessmentRead`
 
-Domain Scores
+**Errors:**
+- 404: "Assessment not found"
 
-Radar Chart data
+### POST /assessments
+
+Create an assessment with questions.
+
+**Request:**
+```json
+{
+  "name": "Science Baseline 2026",
+  "assessment_type": "Baseline",
+  "academic_year_id": 1,
+  "class_number": 6,
+  "questions": [
+    {"question_number": 1, "correct_option": "A", "domain": "Understanding"},
+    {"question_number": 2, "correct_option": "B", "domain": "Observation"}
+  ]
+}
+```
+
+**Validation:**
+- `assessment_type` must be "Baseline" or "Endline"
+- `class_number` must be 6, 7, or 8
+- `questions` must have 10–40 items
+- Question numbers must be unique
+- `correct_option` must be A, B, C, or D
+
+**Response:** `AssessmentRead` (201)
+
+**Errors:**
+- 409: "Question number already exists"
+- 422: "Academic year does not exist"
+- 422: "Question numbers must be unique"
+
+### PUT /assessments/{assessment_id}
+
+Update an assessment (not questions).
+
+**Request:** Same as POST without `questions`.
+
+**Response:** `AssessmentRead`
+
+**Errors:**
+- 404: "Assessment not found"
+- 422: "Academic year does not exist"
+
+### DELETE /assessments/{assessment_id}
+
+Soft delete an assessment.
+
+**Response:** 204 No Content
+
+**Errors:**
+- 404: "Assessment not found"
+
+### POST /assessments/{assessment_id}/duplicate
+
+Duplicate an assessment with all its questions.
+
+**Response:** `AssessmentRead` (201)
+
+**Errors:**
+- 404: "Assessment not found"
+
+### POST /assessments/{assessment_id}/questions
+
+Add a question to an assessment.
+
+**Request:** `{"question_number": 1, "correct_option": "A", "domain": "Understanding"}`
+
+**Response:** `QuestionRead` (201)
+
+**Errors:**
+- 404: "Assessment not found"
+- 409: "Question number already exists"
+- 422: "An assessment cannot have more than 40 questions"
+
+### PUT /assessments/questions/{question_id}
+
+Update a question.
+
+**Request:** Same as POST.
+
+**Response:** `QuestionRead`
+
+**Errors:**
+- 404: "Question not found"
+
+### DELETE /assessments/questions/{question_id}
+
+Delete a question.
+
+**Response:** 204 No Content
+
+**Errors:**
+- 404: "Question not found"
+
+---
+
+## Not Implemented Yet
+
+- Authentication (POST /login, POST /logout, GET /me)
+- Dashboard (GET /dashboard)
+- OMR Processing
+- Analytics
+- Reports

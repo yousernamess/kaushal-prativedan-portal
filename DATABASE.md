@@ -2,254 +2,161 @@
 
 # Database Design
 
+Database: PostgreSQL (Railway)
+ORM: SQLAlchemy 2.0
+Migrations: Alembic
+
+---
+
 ## Tables
 
 ### School
 
 ```text
-id (PK)
-name
-created_at
-updated_at
+id          (PK, integer)
+name        (string, 200, unique, indexed)
+created_at  (datetime, timezone, server_default=now())
+updated_at  (datetime, timezone, server_default=now(), onupdate=now())
 ```
+
+**Relationships:**
+- `students` → Student (one-to-many)
+- `sections` → Section (one-to-many)
+
+**API properties (computed):**
+- `student_count` — count of students
+- `section_count` — count of sections
 
 ---
 
 ### AcademicYear
 
 ```text
-id (PK)
-name
-created_at
-updated_at
+id          (PK, integer)
+name        (string, 9, unique, indexed)
+created_at  (datetime, timezone, server_default=now())
+updated_at  (datetime, timezone, server_default=now(), onupdate=now())
 ```
 
-Example
-
-* 2026-27
-* 2027-28
-
----
-
-### Student
-
-```text
-id (PK)
-school_id (FK -> School)
-
-roll_number
-student_name
-
-current_class
-current_section
-
-created_at
-updated_at
-```
-
-Rules
-
-* Roll numbers are permanent.
-* Student ID is the internal primary key.
-* Student may move between classes.
-* Student may move between schools.
+**Validation:** Name must match `YYYY-YY` pattern (e.g. 2026-27).
 
 ---
 
 ### Section
 
 ```text
-id (PK)
-
-school_id (FK)
-
-class_number
-
-section_name
-
-created_at
-updated_at
+id          (PK, integer)
+school_id   (FK → schools.id, indexed)
+class_number (integer)
+section_name (string, 20)
+created_at  (datetime, timezone, server_default=now())
+updated_at  (datetime, timezone, server_default=now(), onupdate=now())
 ```
 
-Example
+**Constraints:**
+- `UniqueConstraint(school_id, class_number, section_name)` — no duplicate sections per school/class
 
-School A
+**Relationships:**
+- `school` → School (many-to-one)
 
-Class 6
+---
 
-Section A
+### Student
+
+```text
+id              (PK, integer)
+school_id       (FK → schools.id, indexed)
+roll_number     (integer, indexed)
+student_name    (string, 200)
+current_class   (integer)
+current_section (string, 20)
+created_at      (datetime, timezone, server_default=now())
+updated_at      (datetime, timezone, server_default=now(), onupdate=now())
+```
+
+**Constraints:**
+- `UniqueConstraint(school_id, roll_number)` — no duplicate roll numbers per school
+
+**Relationships:**
+- `school` → School (many-to-one)
+
+**API properties (computed):**
+- `school_name` — name of the school
+
+**Rules:**
+- Roll numbers are positive integers.
+- Student ID is the internal primary key.
+- Student may move between classes.
+- Student may move between schools.
 
 ---
 
 ### Assessment
 
 ```text
-id (PK)
-
-name
-
-assessment_type
-(Baseline | Endline)
-
-academic_year_id (FK)
-
-class_number
-
-created_at
-updated_at
+id              (PK, integer)
+name            (string, 200, indexed)
+assessment_type (enum: Baseline | Endline)
+academic_year_id (FK → academic_years.id, indexed)
+class_number    (integer, indexed)
+is_deleted      (boolean, default=False)
+created_at      (datetime, timezone, server_default=now())
+updated_at      (datetime, timezone, server_default=now(), onupdate=now())
 ```
+
+**Relationships:**
+- `questions` → Question (one-to-many, cascade delete)
+
+**Notes:**
+- Soft delete via `is_deleted` flag.
+- `assessment_type` is an enum: `Baseline` or `Endline`.
 
 ---
 
 ### Question
 
 ```text
-id (PK)
-
-assessment_id (FK)
-
-question_number
-
-correct_option
-
-domain
+id              (PK, integer)
+assessment_id   (FK → assessments.id, indexed)
+question_number (integer)
+correct_option  (string, 1)
+domain          (string, 100)
 ```
 
-Rules
+**Constraints:**
+- `UniqueConstraint(assessment_id, question_number)` — no duplicate question numbers per assessment
 
-* Question count: 10–40
-* Exactly one correct option
+**Relationships:**
+- `assessment` → Assessment (many-to-one)
+
+**Rules:**
+- `correct_option` must be A, B, C, or D.
+- `question_number` must be 1–40.
+- `domain` is a learning domain (e.g. Understanding, Observation, Application, Analysis, Scientific Reasoning).
 
 ---
 
-### AssessmentSession
+## Enums
 
-Represents one execution of an assessment.
+### AssessmentType
 
 ```text
-id (PK)
-
-assessment_id (FK)
-
-school_id (FK)
-
-academic_year_id (FK)
-
-class_number
-
-section
-
-created_at
+BASELINE = "Baseline"
+ENDLINE  = "Endline"
 ```
 
 ---
 
-### StudentAttempt
+## Migration
 
-Represents one student's completed assessment.
+Single migration: `20260805_01_initial_schema.py`
 
-```text
-id (PK)
+Creates all tables in order:
+1. schools
+2. academic_years
+3. sections
+4. students
+5. assessments
+6. questions
 
-student_id (FK)
-
-assessment_session_id (FK)
-
-score
-
-percentage
-
-created_at
-```
-
----
-
-### StudentAnswer
-
-```text
-id (PK)
-
-attempt_id (FK)
-
-question_id (FK)
-
-selected_option
-
-is_correct
-```
-
----
-
-# Relationships
-
-School
-
-↓
-
-Students
-
-↓
-
-Student Attempts
-
-↓
-
-Student Answers
-
-Assessment
-
-↓
-
-Questions
-
-↓
-
-Assessment Session
-
-↓
-
-Student Attempts
-
----
-
-# Delete Rules
-
-School
-
-Cannot be deleted if students exist.
-
-Assessment
-
-Soft delete only.
-
-Student
-
-Cannot be deleted if attempts exist.
-
-Assessment Session
-
-Never delete automatically.
-
----
-
-# Indexes
-
-Student
-
-* school_id
-* roll_number
-
-Assessment
-
-* class_number
-* academic_year_id
-
-StudentAttempt
-
-* student_id
-* assessment_session_id
-
-StudentAnswer
-
-* attempt_id
-* question_id
+Run with: `alembic upgrade head`

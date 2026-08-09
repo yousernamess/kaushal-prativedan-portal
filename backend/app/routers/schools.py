@@ -77,9 +77,24 @@ def update_school(school_id: int, payload: SchoolUpdate, db: Session = Depends(g
     return school
 
 
-@router.delete("/{school_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_school(school_id: int, db: Session = Depends(get_db)) -> None:
+@router.delete("/{school_id}/students", status_code=status.HTTP_200_OK)
+def delete_school_students(school_id: int, db: Session = Depends(get_db)) -> dict:
+    """Bulk remove all students from a school."""
     school = school_or_404(school_id, db)
-    if school.students:
+    count = db.query(func.count(Student.id)).filter(Student.school_id == school_id).scalar() or 0
+    if count == 0:
+        return {"deleted": 0}
+    db.query(Student).filter(Student.school_id == school_id).delete()
+    db.commit()
+    return {"deleted": count}
+
+
+@router.delete("/{school_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_school(school_id: int, force: bool = False, db: Session = Depends(get_db)) -> None:
+    school = school_or_404(school_id, db)
+    if school.students and not force:
         raise HTTPException(409, "Cannot delete a school that has students")
+    if force:
+        db.query(Student).filter(Student.school_id == school_id).delete()
+        db.query(Section).filter(Section.school_id == school_id).delete()
     db.delete(school); db.commit()

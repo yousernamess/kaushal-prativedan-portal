@@ -43,6 +43,26 @@ These rules must always be followed during development.
 * Use React Hook Form for forms.
 * Build responsive pages.
 
+### Master Data
+
+* Master Data is a single page (`/master-data`) with tabs: Schools, Academic Years, Sections, Students.
+* Schools and Academic Years use the generic `CrudPage` component.
+* Sections uses a custom page with bulk creation dialog.
+* Students uses a custom page with add/edit forms, cascading dropdowns, and CSV import dialog.
+* Never expose raw database IDs in the UI.
+* Use dropdowns for foreign key fields (school, class, section).
+* Use `customDeleteDialog` prop on `CrudPage` when the default delete dialog is insufficient (e.g., Schools with students).
+
+### Components
+
+* `CrudPage` — generic CRUD page with table, create/edit/delete dialogs.
+* `FormDialog` — modal form with validation, required indicators, loading state.
+* `DeleteConfirmationDialog` — confirmation dialog with custom title/message.
+* `DataTable` — table with columns and optional actions.
+* `PageHeader` — page title with optional action button.
+* `SearchBar` — search input.
+* `Toast` — toast notification provider.
+
 ---
 
 ## OMR
