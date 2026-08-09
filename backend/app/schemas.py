@@ -64,6 +64,11 @@ class StudentRead(StudentBase, ORMModel):
 
 class QuestionInput(BaseModel):
     question_number: int = Field(ge=1, le=40)
+    question_text: str | None = Field(default=None, max_length=500)
+    option_a: str | None = Field(default=None, max_length=200)
+    option_b: str | None = Field(default=None, max_length=200)
+    option_c: str | None = Field(default=None, max_length=200)
+    option_d: str | None = Field(default=None, max_length=200)
     correct_option: str = Field(pattern="^[A-D]$")
     domain: str = Field(min_length=1, max_length=100)
 
@@ -76,7 +81,7 @@ class AssessmentBase(BaseModel):
 
 
 class AssessmentCreate(AssessmentBase):
-    questions: list[QuestionInput] = Field(min_length=10, max_length=40)
+    questions: list[QuestionInput] = Field(default=[], max_length=40)
 
 
 class AssessmentUpdate(AssessmentBase): pass
