@@ -1,2 +1,1 @@
-import { PlaceholderPage } from "./placeholder-page";
-export function SectionsPage() { return <PlaceholderPage title="Sections" description="Manage class sections." />; }
+import { CrudPage } from "../components/common/crud-page"; export function SectionsPage(){return <CrudPage title="Sections" path="/sections" fields={{school_id:"",class_number:"6",section_name:""}} columns={["School ID","Class Number","Section Name"]}/>}

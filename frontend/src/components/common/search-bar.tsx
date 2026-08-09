@@ -1,0 +1,1 @@
+export function SearchBar({ value, onChange }: { value: string; onChange: (value: string) => void }) { return <input value={value} onChange={(event) => onChange(event.target.value)} placeholder="Search..." className="h-10 w-full rounded-md border bg-white px-3 text-sm md:w-72" />; }

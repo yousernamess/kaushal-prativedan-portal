@@ -24,6 +24,14 @@ class School(TimestampMixin, Base):
     students: Mapped[list["Student"]] = relationship(back_populates="school")
     sections: Mapped[list["Section"]] = relationship(back_populates="school")
 
+    @property
+    def student_count(self) -> int:
+        return len(self.students)
+
+    @property
+    def section_count(self) -> int:
+        return len(self.sections)
+
 
 class AcademicYear(TimestampMixin, Base):
     __tablename__ = "academic_years"
@@ -51,6 +59,10 @@ class Student(TimestampMixin, Base):
     current_class: Mapped[int] = mapped_column(Integer)
     current_section: Mapped[str] = mapped_column(String(20))
     school: Mapped[School] = relationship(back_populates="students")
+
+    @property
+    def school_name(self) -> str:
+        return self.school.name
 
 
 class Assessment(TimestampMixin, Base):

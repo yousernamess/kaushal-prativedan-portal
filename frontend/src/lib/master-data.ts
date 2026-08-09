@@ -1,0 +1,3 @@
+import { api } from "./api";
+export type School={id:number;name:string;student_count:number;section_count:number;created_at:string}; export type AcademicYear={id:number;name:string}; export type Section={id:number;school_id:number;class_number:number;section_name:string}; export type Student={id:number;school_id:number;school_name:string;roll_number:number;student_name:string;current_class:number;current_section:string};
+export const masterApi={ schools:()=>api.get<School[]>("/schools").then(r=>r.data), years:()=>api.get<AcademicYear[]>("/academic-years").then(r=>r.data), sections:()=>api.get<Section[]>("/sections").then(r=>r.data), students:(search="")=>api.get<Student[]>("/students",{params:{search}}).then(r=>r.data) };

@@ -1,2 +1,1 @@
-import { PlaceholderPage } from "./placeholder-page";
-export function SchoolsPage() { return <PlaceholderPage title="Schools" description="Manage school master data." />; }
+import { CrudPage } from "../components/common/crud-page"; export function SchoolsPage(){return <CrudPage title="Schools" path="/schools" fields={{name:""}} columns={["Name","Student Count","Section Count","Created At"]}/>}

@@ -4,7 +4,7 @@ from sqlalchemy.exc import IntegrityError
 
 from app.core.database import get_db
 from app.models import School, Section
-from app.schemas import SectionCreate, SectionRead, SectionUpdate
+from app.schemas import SectionBulkCreate, SectionCreate, SectionRead, SectionUpdate
 
 router = APIRouter(prefix="/sections", tags=["Sections"])
 
@@ -33,12 +33,35 @@ def create_section(payload: SectionCreate, db: Session = Depends(get_db)):
     db.refresh(item); return item
 
 
+@router.post("/bulk", response_model=list[SectionRead], status_code=status.HTTP_201_CREATED)
+def create_sections(payload: SectionBulkCreate, db: Session = Depends(get_db)):
+    if not db.get(School, payload.school_id):
+        raise HTTPException(422, "School does not exist")
+    names = [name.strip() for name in payload.section_names.split(",") if name.strip()]
+    normalized = [name.upper() for name in names]
+    if not names or len(normalized) != len(set(normalized)):
+        raise HTTPException(422, "Enter one or more unique comma-separated section names")
+    existing = db.query(Section.section_name).filter(Section.school_id == payload.school_id, Section.class_number == payload.class_number).all()
+    existing_names = {name.upper() for (name,) in existing}
+    duplicates = sorted(set(normalized) & existing_names)
+    if duplicates:
+        raise HTTPException(409, f"Sections already exist: {', '.join(duplicates)}")
+    sections = [Section(school_id=payload.school_id, class_number=payload.class_number, section_name=name) for name in names]
+    db.add_all(sections); db.commit()
+    for section in sections: db.refresh(section)
+    return sections
+
+
 @router.put("/{item_id}", response_model=SectionRead)
 def update_section(item_id: int, payload: SectionUpdate, db: Session = Depends(get_db)):
     item = item_or_404(item_id, db)
     if not db.get(School, payload.school_id): raise HTTPException(422, "School does not exist")
     for key, value in payload.model_dump().items(): setattr(item, key, value)
-    db.commit(); db.refresh(item); return item
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback(); raise HTTPException(409, "This section already exists")
+    db.refresh(item); return item
 
 
 @router.delete("/{item_id}", status_code=status.HTTP_204_NO_CONTENT)

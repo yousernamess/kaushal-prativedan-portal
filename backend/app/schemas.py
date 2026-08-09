@@ -18,6 +18,8 @@ class SchoolRead(SchoolBase, ORMModel):
     id: int
     created_at: datetime
     updated_at: datetime
+    student_count: int
+    section_count: int
 
 
 class AcademicYearBase(BaseModel):
@@ -37,6 +39,10 @@ class SectionBase(BaseModel):
 
 
 class SectionCreate(SectionBase): pass
+class SectionBulkCreate(BaseModel):
+    school_id: int
+    class_number: int = Field(ge=6, le=8)
+    section_names: str = Field(min_length=1, max_length=500)
 class SectionUpdate(SectionBase): pass
 class SectionRead(SectionBase, ORMModel): id: int
 
@@ -51,7 +57,9 @@ class StudentBase(BaseModel):
 
 class StudentCreate(StudentBase): pass
 class StudentUpdate(StudentBase): pass
-class StudentRead(StudentBase, ORMModel): id: int
+class StudentRead(StudentBase, ORMModel):
+    id: int
+    school_name: str
 
 
 class QuestionInput(BaseModel):
