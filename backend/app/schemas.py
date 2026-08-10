@@ -1,7 +1,7 @@
 from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.models import AssessmentType
+from app.models import AssessmentType, ProcessingFileStatus, ProcessingSessionStatus
 
 
 class ORMModel(BaseModel):
@@ -90,3 +90,91 @@ class AssessmentRead(AssessmentBase, ORMModel):
     id: int
     is_deleted: bool
     questions: list[QuestionRead] = []
+
+
+# ── Processing Schemas ─────────────────────────────────────────────
+
+
+class AssessmentSummary(ORMModel):
+    """Read-only assessment metadata for processing sessions."""
+    id: int
+    name: str
+    assessment_type: AssessmentType
+    academic_year_name: str
+    class_number: int
+    question_count: int
+
+
+class SchoolSummary(ORMModel):
+    """Read-only school metadata for processing sessions."""
+    id: int
+    name: str
+    student_count: int
+
+
+class ProcessingFileRead(ORMModel):
+    id: int
+    session_id: int
+    original_filename: str
+    roll_number: int
+    student_id: int | None
+    student_name: str | None = None
+    status: ProcessingFileStatus
+    error_message: str | None
+    retry_count: int
+    created_at: datetime
+    updated_at: datetime
+
+
+class ProcessingSessionRead(ORMModel):
+    id: int
+    assessment_id: int
+    school_id: int
+    status: ProcessingSessionStatus
+    total_files: int
+    valid_files: int
+    invalid_files: int
+    processed_files: int
+    successful_files: int
+    failed_files: int
+    created_at: datetime
+    updated_at: datetime
+    started_at: datetime | None
+    completed_at: datetime | None
+    assessment: AssessmentSummary
+    school: SchoolSummary
+    files: list[ProcessingFileRead] = []
+
+
+class ProcessingSessionListRead(ORMModel):
+    """Lighter version for list views — no files array."""
+    id: int
+    assessment_id: int
+    school_id: int
+    status: ProcessingSessionStatus
+    total_files: int
+    valid_files: int
+    invalid_files: int
+    processed_files: int
+    successful_files: int
+    failed_files: int
+    created_at: datetime
+    updated_at: datetime
+    started_at: datetime | None
+    completed_at: datetime | None
+    assessment: AssessmentSummary
+    school: SchoolSummary
+
+
+class ProcessingProgressRead(ORMModel):
+    session_id: int
+    status: ProcessingSessionStatus
+    total: int
+    processed: int
+    successful: int
+    failed: int
+    remaining: int
+
+
+class RetryRequest(BaseModel):
+    file_ids: list[int] = Field(min_length=1)

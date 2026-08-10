@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus, MoreVertical, Copy, Pencil, Trash2, Eye, X } from "lucide-react";
@@ -53,6 +53,7 @@ function AssessmentForm({
 }) {
   const [form, setForm] = useState(values);
   const [touched, setTouched] = useState<Record<string, boolean>>({});
+  const prevOpen = useRef(open);
 
   if (!open) return null;
 
@@ -61,11 +62,12 @@ function AssessmentForm({
     setTouched((prev) => ({ ...prev, [k]: true }));
   };
 
-  // Reset form when dialog opens
-  if (open && (form.name !== values.name || form.assessment_type !== values.assessment_type)) {
+  // Reset form only when the dialog transitions from closed to open
+  if (open && !prevOpen.current) {
     setForm(values);
     setTouched({});
   }
+  prevOpen.current = open;
 
   const errors: Record<string, string> = {};
   if (touched.name && !form.name.trim()) errors.name = "Assessment name is required";

@@ -29,7 +29,7 @@
 
 ## Milestone 3 — Assessments
 
-Backend ✅ / Frontend ⬜
+Backend ✅ / Frontend ✅
 
 * [x] Assessment CRUD (backend)
 * [x] Baseline / Endline types
@@ -37,7 +37,10 @@ Backend ✅ / Frontend ⬜
 * [x] Duplicate Assessment (backend)
 * [x] Edit Assessment (backend)
 * [x] Delete Assessment (soft delete, backend)
-* [ ] Assessment frontend page (placeholder)
+* [x] Assessment frontend page (placeholder)
+* [x] Assessment list + detail UI (search, filters, create/edit/delete/duplicate)
+* [x] Question management UI (add/edit/delete, question text + options A–D)
+* [x] Domain list (Knowledge, Understanding, Application, Analysis, Evaluation)
 
 ---
 
@@ -48,6 +51,7 @@ Backend ✅ / Frontend ⬜
 * [ ] Upload files
 * [ ] Progress indicator
 * [ ] Error handling
+* [ ] Automatically pass the assessment question count to the OMR extractor
 
 ---
 

@@ -1,7 +1,7 @@
 from datetime import datetime
 from enum import Enum
 
-from sqlalchemy import Boolean, DateTime, Enum as SqlEnum, ForeignKey, Integer, String, UniqueConstraint, func
+from sqlalchemy import Boolean, DateTime, Enum as SqlEnum, ForeignKey, Integer, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -10,6 +10,25 @@ from app.core.database import Base
 class AssessmentType(str, Enum):
     BASELINE = "Baseline"
     ENDLINE = "Endline"
+
+
+class ProcessingSessionStatus(str, Enum):
+    PENDING = "PENDING"
+    VALIDATING = "VALIDATING"
+    READY = "READY"
+    PROCESSING = "PROCESSING"
+    COMPLETED = "COMPLETED"
+    PARTIAL = "PARTIAL"
+    FAILED = "FAILED"
+
+
+class ProcessingFileStatus(str, Enum):
+    PENDING = "PENDING"
+    VALID = "VALID"
+    INVALID = "INVALID"
+    PROCESSED = "PROCESSED"
+    FAILED = "FAILED"
+    RETRYING = "RETRYING"
 
 
 class TimestampMixin:
@@ -74,6 +93,7 @@ class Assessment(TimestampMixin, Base):
     class_number: Mapped[int] = mapped_column(Integer, index=True)
     is_deleted: Mapped[bool] = mapped_column(Boolean, default=False)
     questions: Mapped[list["Question"]] = relationship(back_populates="assessment", cascade="all, delete-orphan")
+    academic_year: Mapped[AcademicYear] = relationship()
 
 
 class Question(Base):
@@ -90,3 +110,42 @@ class Question(Base):
     correct_option: Mapped[str] = mapped_column(String(1))
     domain: Mapped[str] = mapped_column(String(100))
     assessment: Mapped[Assessment] = relationship(back_populates="questions")
+
+
+class ProcessingSession(TimestampMixin, Base):
+    __tablename__ = "processing_sessions"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    assessment_id: Mapped[int] = mapped_column(ForeignKey("assessments.id"), index=True)
+    school_id: Mapped[int] = mapped_column(ForeignKey("schools.id"), index=True)
+    status: Mapped[ProcessingSessionStatus] = mapped_column(
+        SqlEnum(ProcessingSessionStatus), default=ProcessingSessionStatus.PENDING
+    )
+    total_files: Mapped[int] = mapped_column(Integer, default=0)
+    valid_files: Mapped[int] = mapped_column(Integer, default=0)
+    invalid_files: Mapped[int] = mapped_column(Integer, default=0)
+    processed_files: Mapped[int] = mapped_column(Integer, default=0)
+    successful_files: Mapped[int] = mapped_column(Integer, default=0)
+    failed_files: Mapped[int] = mapped_column(Integer, default=0)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    assessment: Mapped[Assessment] = relationship()
+    school: Mapped[School] = relationship()
+    files: Mapped[list["ProcessingFile"]] = relationship(back_populates="session", cascade="all, delete-orphan")
+
+
+class ProcessingFile(TimestampMixin, Base):
+    __tablename__ = "processing_files"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    session_id: Mapped[int] = mapped_column(ForeignKey("processing_sessions.id", ondelete="CASCADE"), index=True)
+    original_filename: Mapped[str] = mapped_column(String(500))
+    roll_number: Mapped[int] = mapped_column(Integer)
+    student_id: Mapped[int | None] = mapped_column(ForeignKey("students.id"), nullable=True, index=True)
+    status: Mapped[ProcessingFileStatus] = mapped_column(
+        SqlEnum(ProcessingFileStatus), default=ProcessingFileStatus.PENDING
+    )
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    retry_count: Mapped[int] = mapped_column(Integer, default=0)
+
+    session: Mapped[ProcessingSession] = relationship(back_populates="files")
+    student: Mapped[Student | None] = relationship()
