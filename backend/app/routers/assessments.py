@@ -1,9 +1,63 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+import csv
+import io
+
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.database import get_db
 from app.models import AcademicYear, Assessment, Question
 from app.schemas import AssessmentCreate, AssessmentRead, AssessmentUpdate, QuestionInput, QuestionRead
+
+# CSV column order (also serves as the export template header row).
+CSV_COLUMNS = ["question_number", "question_text", "option_a", "option_b", "option_c", "option_d", "correct_option", "domain"]
+
+
+def _escape_cell(value) -> str:
+    """Normalize a value for CSV output; returns empty string for None."""
+    return "" if value is None else str(value).replace("\n", " ").strip()
+
+
+def _question_rows(assessment: Assessment) -> list[dict[str, str]]:
+    """Render an assessment's questions as ordered dict rows for CSV export."""
+    rows = []
+    for q in sorted(assessment.questions, key=lambda x: x.question_number):
+        rows.append({col: _escape_cell(getattr(q, col)) for col in CSV_COLUMNS})
+    return rows
+
+
+def _parse_question_rows(rows: list[dict]) -> list[QuestionInput]:
+    """Validate raw CSV rows into QuestionInput objects."""
+    questions: list[QuestionInput] = []
+    for idx, raw in enumerate(rows, start=2):  # 1-indexed with header on row 1
+        if not any((raw.get(k) for k in CSV_COLUMNS if k != "question_text")):
+            continue  # skip fully-blank lines
+        number_raw = str(raw.get("question_number", "")).strip()
+        if not number_raw:
+            raise HTTPException(422, f"Row {idx}: question_number is required")
+        try:
+            number = int(number_raw)
+        except ValueError:
+            raise HTTPException(422, f"Row {idx}: question_number must be an integer")
+        correct = str(raw.get("correct_option", "")).strip().upper()
+        if correct not in ("A", "B", "C", "D"):
+            raise HTTPException(422, f"Row {idx}: correct_option must be A, B, C or D")
+        domain = str(raw.get("domain", "")).strip()
+        if not domain:
+            raise HTTPException(422, f"Row {idx}: domain is required")
+        questions.append(
+            QuestionInput(
+                question_number=number,
+                question_text=_escape_cell(raw.get("question_text")) or None,
+                option_a=_escape_cell(raw.get("option_a")) or None,
+                option_b=_escape_cell(raw.get("option_b")) or None,
+                option_c=_escape_cell(raw.get("option_c")) or None,
+                option_d=_escape_cell(raw.get("option_d")) or None,
+                correct_option=correct,
+                domain=domain,
+            )
+        )
+    return questions
 
 router = APIRouter(prefix="/assessments", tags=["Assessments"])
 
@@ -95,3 +149,52 @@ def delete_question(question_id: int, db: Session = Depends(get_db)):
     item = db.get(Question, question_id)
     if not item: raise HTTPException(404, "Question not found")
     db.delete(item); db.commit()
+
+
+@router.get("/{assessment_id}/export", tags=["Assessments"])
+def export_assessment_csv(assessment_id: int, db: Session = Depends(get_db)):
+    """Export an assessment's questions as a downloadable CSV template."""
+    assessment = assessment_or_404(assessment_id, db)
+    buffer = io.StringIO()
+    writer = csv.DictWriter(buffer, fieldnames=CSV_COLUMNS)
+    writer.writeheader()
+    writer.writerows(_question_rows(assessment))
+
+    filename = "".join(ch for ch in assessment.name.lower() if ch.isalnum() or ch in ("-", "_")) or "assessment"
+    buffer.seek(0)
+    return StreamingResponse(
+        iter([buffer.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{filename}-questions.csv"'},
+    )
+
+
+@router.post("/{assessment_id}/import", response_model=AssessmentRead, status_code=status.HTTP_201_CREATED)
+def import_assessment_csv(assessment_id: int, file: UploadFile = File(...), db: Session = Depends(get_db)):
+    """Replace an assessment's questions from an uploaded CSV file (matching the export template)."""
+    assessment = assessment_or_404(assessment_id, db)
+    if not file.filename or not file.filename.lower().endswith(".csv"):
+        raise HTTPException(422, "Please upload a .csv file")
+
+    raw = file.file.read()
+    try:
+        text = raw.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        raise HTTPException(422, "CSV must be UTF-8 encoded")
+
+    try:
+        rows = list(csv.DictReader(io.StringIO(text)))
+    except Exception:
+        raise HTTPException(422, "Could not parse CSV file")
+
+    questions = _parse_question_rows(rows)
+    if not questions:
+        raise HTTPException(422, "CSV contains no questions")
+    if len(questions) > 40:
+        raise HTTPException(422, "An assessment cannot have more than 40 questions")
+    validate_questions(questions)
+
+    # Replace existing questions
+    assessment.questions = [Question(**q.model_dump()) for q in questions]
+    db.commit()
+    return assessment_or_404(assessment_id, db)

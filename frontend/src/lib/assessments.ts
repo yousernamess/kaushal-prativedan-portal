@@ -137,4 +137,31 @@ export const assessmentApi = {
   // Delete question
   deleteQuestion: (questionId: number) =>
     api.delete(`/assessments/questions/${questionId}`),
+
+  // Export assessment questions as CSV (downloads a file)
+  exportCsv: async (assessmentId: number, fileName: string) => {
+    const res = await api.get(`/assessments/${assessmentId}/export`, {
+      responseType: "blob",
+    });
+    // Construct a download URL from the blob and trigger a click.
+    const url = window.URL.createObjectURL(res.data as Blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${fileName}-questions.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+  },
+
+  // Import questions into an assessment from a CSV file (replaces existing)
+  importCsv: (assessmentId: number, file: File) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    return api
+      .post<Assessment>(`/assessments/${assessmentId}/import`, formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      })
+      .then((r) => r.data);
+  },
 };

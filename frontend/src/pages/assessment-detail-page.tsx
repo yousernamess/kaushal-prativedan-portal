@@ -1,7 +1,7 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Plus, Pencil, Trash2, Copy, AlertTriangle } from "lucide-react";
+import { ArrowLeft, Plus, Pencil, Trash2, Copy, AlertTriangle, Upload, Download } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { DataTable } from "../components/common/data-table";
 import { DeleteConfirmationDialog } from "../components/common/delete-confirmation-dialog";
@@ -392,6 +392,10 @@ export function AssessmentDetailPage() {
   const [duplicating, setDuplicating] = useState(false);
   const [duplicateLoading, setDuplicateLoading] = useState(false);
 
+  // CSV import/export
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [importError, setImportError] = useState<string | null>(null);
+
   // Errors
   const [addQuestionError, setAddQuestionError] = useState<string | null>(null);
   const [editQuestionError, setEditQuestionError] = useState<string | null>(null);
@@ -464,6 +468,38 @@ export function AssessmentDetailPage() {
       setDeleteAssessmentOpen(false);
     },
   });
+
+  // Mutations - CSV import/export
+  const exportCsv = useMutation({
+    mutationFn: () => assessmentApi.exportCsv(assessmentId, assessment.data?.name || "assessment"),
+    onSuccess: () => toast("Questions exported to CSV"),
+    onError: (err) => toast(extractErrorMessage(err)),
+  });
+
+  const importCsv = useMutation({
+    mutationFn: (file: File) => assessmentApi.importCsv(assessmentId, file),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["assessment", assessmentId] });
+      qc.invalidateQueries({ queryKey: ["assessments"] });
+      setImportError(null);
+      toast("Questions imported successfully");
+    },
+    onError: (err) => setImportError(extractErrorMessage(err)),
+  });
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (!file.name.toLowerCase().endsWith(".csv")) {
+      setImportError("Please select a .csv file");
+      return;
+    }
+    setImportError(null);
+    if (window.confirm("Importing a CSV will replace all current questions in this assessment. Continue?")) {
+      importCsv.mutate(file);
+    }
+  };
 
   // Mutations - Questions
   const addQuestion = useMutation({
@@ -629,17 +665,48 @@ export function AssessmentDetailPage() {
       )}
 
       {/* Questions section */}
-      <div className="mb-4 flex items-center justify-between">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <h3 className="text-lg font-semibold text-slate-900">
           Questions
           <span className="ml-2 text-sm font-normal text-slate-500">
             ({sortedQuestions.length} question{sortedQuestions.length !== 1 ? "s" : ""})
           </span>
         </h3>
-        <Button onClick={() => { setAddQuestionError(null); setAddQuestionOpen(true); }}>
-          <Plus size={16} className="mr-1" /> Add Question
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            disabled={exportCsv.isPending || sortedQuestions.length === 0}
+            onClick={() => exportCsv.mutate()}
+          >
+            <Download size={16} className="mr-1" />
+            {exportCsv.isPending ? "Exporting..." : "Export CSV"}
+          </Button>
+          <Button
+            variant="ghost"
+            disabled={importCsv.isPending}
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <Upload size={16} className="mr-1" />
+            {importCsv.isPending ? "Importing..." : "Import CSV"}
+          </Button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".csv,text/csv"
+            className="hidden"
+            onChange={handleFileChange}
+          />
+          <Button onClick={() => { setAddQuestionError(null); setAddQuestionOpen(true); }}>
+            <Plus size={16} className="mr-1" /> Add Question
+          </Button>
+        </div>
       </div>
+
+      {importError && (
+        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+          Import failed: {importError}
+        </div>
+      )}
 
       {/* Questions loading */}
       {assessment.isPending && (
