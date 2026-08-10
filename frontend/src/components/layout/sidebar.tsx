@@ -6,6 +6,7 @@ const mainItems = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
   { to: "/assessments", label: "Assessments", icon: ClipboardCheck },
   { to: "/process-omr", label: "Process OMR", icon: ScanLine },
+  { to: "/analytics", label: "Analytics", icon: BarChart3 },
   { to: "/reports", label: "Reports", icon: FileBarChart },
 ];
 

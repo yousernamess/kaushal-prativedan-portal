@@ -1,5 +1,6 @@
 import { createBrowserRouter } from "react-router-dom";
 import { AppLayout } from "../components/layout/app-layout";
+import { AnalyticsPage } from "../pages/analytics-page";
 import { AssessmentsPage } from "../pages/assessments-page";
 import { AssessmentDetailPage } from "../pages/assessment-detail-page";
 import { DashboardPage } from "../pages/dashboard-page";
@@ -13,5 +14,6 @@ export const router = createBrowserRouter([{ path: "/", element: <AppLayout />, 
   { path: "assessments", element: <AssessmentsPage /> },
   { path: "assessments/:id", element: <AssessmentDetailPage /> },
   { path: "process-omr", element: <ProcessOmrPage /> },
+  { path: "analytics", element: <AnalyticsPage /> },
   { path: "reports", element: <ReportsPage /> },
 ]}]);
