@@ -1,4 +1,4 @@
-"""Analytics service — computes assessment, school, and student analytics.
+"""Analytics service — computes assessment, school, student, and question analytics.
 
 All functions accept a SQLAlchemy Session and return plain dicts/pydantic-ready
 data. No FastAPI dependency injection here — the router calls these functions.
@@ -9,6 +9,7 @@ Key design decisions:
 - Percentile = (count scoring strictly lower / total in scope) * 100.
 - All aggregation is done in-memory after fetching the relevant rows.
 - Student section is matched via current_class + current_section strings.
+- Question identity is based on normalized (question_text, option_a-d) fingerprint.
 """
 
 from decimal import Decimal
@@ -59,6 +60,36 @@ def _percentile(target_pct: float, all_pcts: list[float]) -> float:
         return 0.0
     lower = sum(1 for p in all_pcts if p < target_pct)
     return round(lower / total * 100, 2)
+
+
+def _normalize(text: str | None) -> str:
+    """Normalize text for question identity comparison.
+
+    Rules: None -> "", lowercase, strip, collapse whitespace.
+    Does NOT remove punctuation.
+    """
+    if text is None:
+        return ""
+    return " ".join(text.lower().split())
+
+
+def question_fingerprint(q: Question) -> tuple[str, str, str, str, str]:
+    """Compute the five-field normalized fingerprint for a question.
+
+    Returns (normalized_text, normalized_a, normalized_b, normalized_c, normalized_d).
+    """
+    return (
+        _normalize(q.question_text),
+        _normalize(q.option_a),
+        _normalize(q.option_b),
+        _normalize(q.option_c),
+        _normalize(q.option_d),
+    )
+
+
+def _is_valid_fingerprint(fp: tuple[str, str, str, str, str]) -> bool:
+    """A fingerprint is valid only if at least one field is non-empty."""
+    return any(field != "" for field in fp)
 
 
 def _domain_breakdown_from_attempts(
@@ -435,4 +466,208 @@ def student_analytics(
         "overall_rank": overall_rank,
         "school_percentile": school_pct,
         "overall_percentile": overall_pct,
+    }
+
+
+# ── Question Analytics (M6B) ──────────────────────────────────────
+
+
+def question_analytics(
+    db: Session,
+    assessment_id: int,
+    school_id: int | None = None,
+    class_number: int | None = None,
+    section: str | None = None,
+) -> dict:
+    """Per-question analytics for an assessment with optional scope filters.
+
+    Returns a list of question stats: assessed, correct, wrong, percentage.
+    """
+    assessment = _verify_assessment(db, assessment_id)
+
+    attempts = _get_completed_attempts(
+        db, assessment_id,
+        school_id=school_id, class_number=class_number, section=section,
+    )
+
+    # Build question stats from the AttemptQuestion rows
+    q_stats: dict[int, dict] = {}  # question_id -> {correct, total, ...}
+    for att in attempts:
+        for aq in att.questions:
+            qid = aq.question_id
+            if qid not in q_stats:
+                q_stats[qid] = {"correct": 0, "total": 0}
+            q_stats[qid]["total"] += 1
+            if aq.is_correct:
+                q_stats[qid]["correct"] += 1
+
+    # Build ordered list from assessment questions
+    questions = sorted(assessment.questions, key=lambda q: q.question_number)
+    result_questions = []
+    for q in questions:
+        stats = q_stats.get(q.id, {"correct": 0, "total": 0})
+        assessed = stats["total"]
+        correct = stats["correct"]
+        wrong = assessed - correct
+        pct = round(correct / assessed * 100, 2) if assessed > 0 else 0.0
+        result_questions.append({
+            "question_id": q.id,
+            "question_number": q.question_number,
+            "question_text": q.question_text,
+            "domain": q.domain,
+            "assessed": assessed,
+            "correct": correct,
+            "wrong": wrong,
+            "percentage": pct,
+        })
+
+    return {
+        "assessment_id": assessment_id,
+        "total_students_assessed": len(attempts),
+        "scope": {
+            "school_id": school_id,
+            "class_number": class_number,
+            "section": section,
+        },
+        "questions": result_questions,
+    }
+
+
+def question_history(
+    db: Session,
+    assessment_id: int,
+    question_id: int,
+    school_id: int | None = None,
+    class_number: int | None = None,
+    section: str | None = None,
+) -> dict:
+    """Historical performance for a specific question across assessments.
+
+    Finds questions with identical normalized fingerprints in other assessments.
+    For each historical appearance, computes scoped stats.
+    """
+    assessment = _verify_assessment(db, assessment_id)
+
+    # Verify question belongs to this assessment
+    target_q = None
+    for q in assessment.questions:
+        if q.id == question_id:
+            target_q = q
+            break
+    if target_q is None:
+        raise ValueError(
+            f"Question {question_id} not found in assessment {assessment_id}"
+        )
+
+    fp = question_fingerprint(target_q)
+    if not _is_valid_fingerprint(fp):
+        return {
+            "question_id": question_id,
+            "question_number": target_q.question_number,
+            "question_text": target_q.question_text,
+            "domain": target_q.domain,
+            "fingerprint_valid": False,
+            "fingerprint_match_count": 0,
+            "current": {
+                "assessment_id": assessment_id,
+                "assessment_name": assessment.name,
+                "academic_year": assessment.academic_year.name
+                if assessment.academic_year else "",
+                "assessment_type": assessment.assessment_type.value,
+                "question_number": target_q.question_number,
+                "assessed": 0,
+                "correct": 0,
+                "percentage": 0.0,
+            },
+            "history": [],
+        }
+
+    # Find all questions with matching fingerprint across non-deleted assessments
+    all_questions = (
+        db.query(Question)
+        .join(Assessment, Question.assessment_id == Assessment.id)
+        .filter(Assessment.is_deleted.is_(False))
+        .all()
+    )
+    matching_questions = [
+        q for q in all_questions
+        if q.id != question_id and question_fingerprint(q) == fp
+    ]
+
+    # Get current assessment stats for this question
+    current_attempts = _get_completed_attempts(
+        db, assessment_id,
+        school_id=school_id, class_number=class_number, section=section,
+    )
+    current_correct = 0
+    current_assessed = 0
+    for att in current_attempts:
+        for aq in att.questions:
+            if aq.question_id == question_id:
+                current_assessed += 1
+                if aq.is_correct:
+                    current_correct += 1
+    current_pct = (
+        round(current_correct / current_assessed * 100, 2)
+        if current_assessed > 0 else 0.0
+    )
+
+    # Build history from matching questions
+    history = []
+    for mq in matching_questions:
+        hist_attempts = _get_completed_attempts(
+            db, mq.assessment_id,
+            school_id=school_id, class_number=class_number, section=section,
+        )
+        if not hist_attempts:
+            continue  # No students in scope — omit this appearance
+
+        h_correct = 0
+        h_assessed = 0
+        for att in hist_attempts:
+            for aq in att.questions:
+                if aq.question_id == mq.id:
+                    h_assessed += 1
+                    if aq.is_correct:
+                        h_correct += 1
+
+        if h_assessed == 0:
+            continue
+
+        h_pct = round(h_correct / h_assessed * 100, 2)
+        hist_assessment = mq.assessment
+        history.append({
+            "assessment_id": hist_assessment.id,
+            "assessment_name": hist_assessment.name,
+            "academic_year": hist_assessment.academic_year.name
+            if hist_assessment.academic_year else "",
+            "assessment_type": hist_assessment.assessment_type.value,
+            "question_number": mq.question_number,
+            "assessed": h_assessed,
+            "correct": h_correct,
+            "percentage": h_pct,
+        })
+
+    # Sort history by academic year descending, then assessment type
+    history.sort(key=lambda h: (h["academic_year"], h["assessment_type"]), reverse=True)
+
+    return {
+        "question_id": question_id,
+        "question_number": target_q.question_number,
+        "question_text": target_q.question_text,
+        "domain": target_q.domain,
+        "fingerprint_valid": True,
+        "fingerprint_match_count": len(matching_questions),
+        "current": {
+            "assessment_id": assessment_id,
+            "assessment_name": assessment.name,
+            "academic_year": assessment.academic_year.name
+            if assessment.academic_year else "",
+            "assessment_type": assessment.assessment_type.value,
+            "question_number": target_q.question_number,
+            "assessed": current_assessed,
+            "correct": current_correct,
+            "percentage": current_pct,
+        },
+        "history": history,
     }

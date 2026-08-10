@@ -281,3 +281,63 @@ class StudentAnalyticsResponse(BaseModel):
     overall_rank: int
     school_percentile: float
     overall_percentile: float
+
+
+# ── M6B: Question Analytics Schemas ────────────────────────────────
+
+
+class QuestionAnalyticsItem(BaseModel):
+    question_id: int
+    question_number: int
+    question_text: str | None
+    domain: str
+    assessed: int
+    correct: int
+    wrong: int
+    percentage: float
+
+
+class QuestionAnalyticsScope(BaseModel):
+    school_id: int | None = None
+    class_number: int | None = None
+    section: str | None = None
+
+
+class QuestionAnalyticsResponse(BaseModel):
+    assessment_id: int
+    total_students_assessed: int
+    scope: QuestionAnalyticsScope
+    questions: list[QuestionAnalyticsItem]
+
+
+class HistoricalAppearance(BaseModel):
+    assessment_id: int
+    assessment_name: str
+    academic_year: str
+    assessment_type: str
+    question_number: int
+    assessed: int
+    correct: int
+    percentage: float
+
+
+class QuestionHistoryCurrent(BaseModel):
+    assessment_id: int
+    assessment_name: str
+    academic_year: str
+    assessment_type: str
+    question_number: int
+    assessed: int
+    correct: int
+    percentage: float
+
+
+class QuestionHistoryResponse(BaseModel):
+    question_id: int
+    question_number: int
+    question_text: str | None
+    domain: str
+    fingerprint_valid: bool
+    fingerprint_match_count: int
+    current: QuestionHistoryCurrent
+    history: list[HistoricalAppearance]

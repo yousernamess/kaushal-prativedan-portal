@@ -6,11 +6,15 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.schemas import (
     AssessmentOverviewResponse,
+    QuestionAnalyticsResponse,
+    QuestionHistoryResponse,
     SchoolAnalyticsResponse,
     StudentAnalyticsResponse,
 )
 from app.services.analytics_service import (
     assessment_overview,
+    question_analytics,
+    question_history,
     school_analytics,
     student_analytics,
 )
@@ -72,6 +76,54 @@ def get_student_analytics(
     """Analytics for a specific student in a specific assessment."""
     try:
         result = student_analytics(db, assessment_id, student_id)
+    except ValueError as e:
+        raise HTTPException(404, str(e))
+    return result
+
+
+# ── M6B: Question Analytics ────────────────────────────────────────
+
+
+@router.get(
+    "/assessments/{assessment_id}/questions",
+    response_model=QuestionAnalyticsResponse,
+)
+def get_question_analytics(
+    assessment_id: int,
+    school_id: int | None = Query(None),
+    class_number: int | None = Query(None),
+    section: str | None = Query(None),
+    db: Session = Depends(get_db),
+):
+    """Per-question analytics for an assessment with optional scope filters."""
+    try:
+        result = question_analytics(
+            db, assessment_id,
+            school_id=school_id, class_number=class_number, section=section,
+        )
+    except ValueError as e:
+        raise HTTPException(404, str(e))
+    return result
+
+
+@router.get(
+    "/assessments/{assessment_id}/questions/{question_id}/history",
+    response_model=QuestionHistoryResponse,
+)
+def get_question_history(
+    assessment_id: int,
+    question_id: int,
+    school_id: int | None = Query(None),
+    class_number: int | None = Query(None),
+    section: str | None = Query(None),
+    db: Session = Depends(get_db),
+):
+    """Historical performance for a specific question across assessments."""
+    try:
+        result = question_history(
+            db, assessment_id, question_id,
+            school_id=school_id, class_number=class_number, section=section,
+        )
     except ValueError as e:
         raise HTTPException(404, str(e))
     return result
