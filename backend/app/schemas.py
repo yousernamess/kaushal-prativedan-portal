@@ -203,3 +203,81 @@ class ProcessingProgressRead(ORMModel):
 
 class RetryRequest(BaseModel):
     file_ids: list[int] = Field(min_length=1)
+
+
+# ── Analytics Schemas ──────────────────────────────────────────────
+
+
+class DomainBreakdown(BaseModel):
+    domain: str
+    correct: int
+    total: int
+    percentage: float
+
+
+class SchoolSummaryForAnalytics(BaseModel):
+    school_id: int
+    school_name: str
+    students_assessed: int
+    average_score: float
+    average_percentage: float
+    highest_percentage: float
+    lowest_percentage: float
+    domains: list[DomainBreakdown]
+    school_rank: int
+
+
+class StudentInSchool(BaseModel):
+    student_id: int
+    student_name: str
+    roll_number: int
+    score: int
+    total_questions: int
+    percentage: float
+
+
+class AssessmentOverviewResponse(BaseModel):
+    assessment_id: int
+    total_students_assessed: int
+    average_score: float
+    average_percentage: float
+    highest_percentage: float
+    lowest_percentage: float
+    domains: list[DomainBreakdown]
+    schools: list[SchoolSummaryForAnalytics]
+
+
+class SchoolAnalyticsResponse(BaseModel):
+    assessment_id: int
+    school_id: int
+    school_name: str
+    students_assessed: int
+    average_score: float
+    average_percentage: float
+    highest_percentage: float
+    lowest_percentage: float
+    domains: list[DomainBreakdown]
+    school_rank: int | None
+    students: list[StudentInSchool]
+
+
+class StudentAnalyticsResponse(BaseModel):
+    assessment_id: int
+    student_id: int
+    student_name: str
+    roll_number: int
+    school_id: int
+    school_name: str
+    current_class: int
+    current_section: str
+    score: int
+    total_questions: int
+    wrong: int
+    percentage: float
+    domains: list[DomainBreakdown]
+    school_average: float
+    overall_average: float
+    school_rank: int
+    overall_rank: int
+    school_percentile: float
+    overall_percentile: float
