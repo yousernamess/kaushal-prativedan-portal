@@ -1,7 +1,8 @@
 from datetime import datetime
 from enum import Enum
+from decimal import Decimal
 
-from sqlalchemy import Boolean, DateTime, Enum as SqlEnum, ForeignKey, Integer, String, Text, UniqueConstraint, func
+from sqlalchemy import Boolean, DateTime, Enum as SqlEnum, ForeignKey, Integer, Numeric, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -132,6 +133,7 @@ class ProcessingSession(TimestampMixin, Base):
     assessment: Mapped[Assessment] = relationship()
     school: Mapped[School] = relationship()
     files: Mapped[list["ProcessingFile"]] = relationship(back_populates="session", cascade="all, delete-orphan")
+    attempts: Mapped[list["AssessmentAttempt"]] = relationship(back_populates="processing_session")
 
 
 class ProcessingFile(TimestampMixin, Base):
@@ -149,3 +151,58 @@ class ProcessingFile(TimestampMixin, Base):
 
     session: Mapped[ProcessingSession] = relationship(back_populates="files")
     student: Mapped[Student | None] = relationship()
+
+
+class AttemptStatus(str, Enum):
+    COMPLETED = "COMPLETED"
+    FAILED = "FAILED"
+
+
+class AssessmentAttempt(TimestampMixin, Base):
+    __tablename__ = "assessment_attempts"
+    __table_args__ = (
+        UniqueConstraint("assessment_id", "student_id", name="uq_attempt_assessment_student"),
+    )
+    id: Mapped[int] = mapped_column(primary_key=True)
+    assessment_id: Mapped[int] = mapped_column(ForeignKey("assessments.id"), index=True)
+    student_id: Mapped[int] = mapped_column(ForeignKey("students.id"), index=True)
+    processing_session_id: Mapped[int] = mapped_column(
+        ForeignKey("processing_sessions.id"), index=True
+    )
+    score: Mapped[int] = mapped_column(Integer, default=0)
+    total_questions: Mapped[int] = mapped_column(Integer)
+    percentage: Mapped[Decimal] = mapped_column(Numeric(5, 2), default=Decimal("0.00"))
+    status: Mapped[AttemptStatus] = mapped_column(
+        SqlEnum(AttemptStatus), default=AttemptStatus.COMPLETED
+    )
+    completed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+    assessment: Mapped[Assessment] = relationship()
+    student: Mapped[Student] = relationship()
+    processing_session: Mapped[ProcessingSession] = relationship()
+    questions: Mapped[list["AttemptQuestion"]] = relationship(
+        back_populates="attempt", cascade="all, delete-orphan"
+    )
+
+
+class AttemptQuestion(Base):
+    __tablename__ = "attempt_questions"
+    __table_args__ = (
+        UniqueConstraint("attempt_id", "question_id", name="uq_attempt_question"),
+    )
+    id: Mapped[int] = mapped_column(primary_key=True)
+    attempt_id: Mapped[int] = mapped_column(
+        ForeignKey("assessment_attempts.id", ondelete="CASCADE"), index=True
+    )
+    question_id: Mapped[int] = mapped_column(
+        ForeignKey("questions.id"), index=True
+    )
+    detected_answer: Mapped[str | None] = mapped_column(String(1), nullable=True)
+    correct_answer: Mapped[str] = mapped_column(String(1))
+    is_correct: Mapped[bool] = mapped_column(Boolean, default=False)
+    domain: Mapped[str] = mapped_column(String(100))
+
+    attempt: Mapped[AssessmentAttempt] = relationship(back_populates="questions")
+    question: Mapped[Question] = relationship()

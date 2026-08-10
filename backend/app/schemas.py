@@ -1,7 +1,7 @@
 from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.models import AssessmentType, ProcessingFileStatus, ProcessingSessionStatus
+from app.models import AssessmentType, AttemptStatus, ProcessingFileStatus, ProcessingSessionStatus
 
 
 class ORMModel(BaseModel):
@@ -112,6 +112,30 @@ class SchoolSummary(ORMModel):
     student_count: int
 
 
+class AttemptQuestionRead(ORMModel):
+    id: int
+    attempt_id: int
+    question_id: int
+    detected_answer: str | None
+    correct_answer: str
+    is_correct: bool
+    domain: str
+
+
+class AttemptRead(ORMModel):
+    id: int
+    assessment_id: int
+    student_id: int
+    processing_session_id: int
+    score: int
+    total_questions: int
+    percentage: float
+    status: AttemptStatus
+    created_at: datetime
+    completed_at: datetime | None
+    questions: list[AttemptQuestionRead] = []
+
+
 class ProcessingFileRead(ORMModel):
     id: int
     session_id: int
@@ -124,6 +148,7 @@ class ProcessingFileRead(ORMModel):
     retry_count: int
     created_at: datetime
     updated_at: datetime
+    attempt: AttemptRead | None = None
 
 
 class ProcessingSessionRead(ORMModel):

@@ -12,6 +12,8 @@ from sqlalchemy.orm import Session, selectinload
 from app.core.database import get_db
 from app.models import (
     Assessment,
+    AssessmentAttempt,
+    AttemptQuestion,
     ProcessingFile,
     ProcessingFileStatus,
     ProcessingSession,
@@ -26,6 +28,8 @@ from app.schemas import (
     ProcessingSessionRead,
     RetryRequest,
 )
+from app.services.evaluation_service import evaluate_and_persist
+from app.services.omr_service import OMRProcessingError, get_template_question_count
 
 router = APIRouter(prefix="/processing-sessions", tags=["Processing Sessions"])
 
@@ -67,7 +71,12 @@ def _build_school_summary(school: School) -> dict:
 
 
 def _file_to_dict(f: ProcessingFile) -> dict:
-    return {
+    # Find the attempt for this student in the current session's assessment
+    attempt_dict = None
+    if f.student_id and hasattr(f, '_attempt_data'):
+        attempt_dict = f._attempt_data
+
+    result = {
         "id": f.id,
         "session_id": f.session_id,
         "original_filename": f.original_filename,
@@ -79,12 +88,56 @@ def _file_to_dict(f: ProcessingFile) -> dict:
         "retry_count": f.retry_count,
         "created_at": f.created_at,
         "updated_at": f.updated_at,
+        "attempt": attempt_dict,
     }
+    return result
 
 
-def _session_to_dict(session: ProcessingSession) -> dict:
+def _session_to_dict(session: ProcessingSession, db: Session = None) -> dict:
     assessment = session.assessment
     school = session.school
+
+    # Load attempts for this session to attach to files
+    attempt_map: dict[int, dict] = {}
+    if db:
+        attempts = (
+            db.query(AssessmentAttempt)
+            .options(selectinload(AssessmentAttempt.questions))
+            .filter(AssessmentAttempt.processing_session_id == session.id)
+            .all()
+        )
+        for att in attempts:
+            attempt_map[att.student_id] = {
+                "id": att.id,
+                "assessment_id": att.assessment_id,
+                "student_id": att.student_id,
+                "processing_session_id": att.processing_session_id,
+                "score": att.score,
+                "total_questions": att.total_questions,
+                "percentage": float(att.percentage),
+                "status": att.status.value,
+                "created_at": att.created_at,
+                "completed_at": att.completed_at,
+                "questions": [
+                    {
+                        "id": q.id,
+                        "attempt_id": q.attempt_id,
+                        "question_id": q.question_id,
+                        "detected_answer": q.detected_answer,
+                        "correct_answer": q.correct_answer,
+                        "is_correct": q.is_correct,
+                        "domain": q.domain,
+                    }
+                    for q in att.questions
+                ],
+            }
+
+    # Attach attempt data to files
+    files = []
+    for f in session.files:
+        f._attempt_data = attempt_map.get(f.student_id) if f.student_id else None
+        files.append(_file_to_dict(f))
+
     return {
         "id": session.id,
         "assessment_id": session.assessment_id,
@@ -102,7 +155,7 @@ def _session_to_dict(session: ProcessingSession) -> dict:
         "completed_at": session.completed_at,
         "assessment": _build_assessment_summary(assessment),
         "school": _build_school_summary(school),
-        "files": [_file_to_dict(f) for f in session.files],
+        "files": files,
     }
 
 
@@ -138,33 +191,56 @@ def _update_counters(session: ProcessingSession, db: Session) -> None:
     session.failed_files = sum(1 for f in files if f.status == ProcessingFileStatus.FAILED)
 
 
-# ── Placeholder OMR Processor (M5 will replace) ───────────────────
-# This function is intentionally isolated so M5 can swap it with the
-# real bubble_reader.read_omr() call without touching the session/file
-# workflow code above or below.
+# ── OMR Processor (M5 real implementation) ─────────────────────────
 
 
 def process_single_omr_file(
+    db: Session,
+    *,
     file_path: Path,
     question_count: int,
     session_id: int,
     file_id: int,
+    assessment: Assessment,
+    student: Student,
 ) -> dict:
-    """Placeholder OMR processor for M4.
+    """Run OMR extraction + evaluation for a single file.
 
     Returns:
-        {"success": True, "result": None}  — M5 will return actual answers.
-        {"success": False, "error": "..."} — M5 will catch real errors.
+        {"success": True, "result": {...}}  — score, total, percentage, attempt_id
+        {"success": False, "error": "..."}   — failure reason
 
-    This function MUST NOT:
-    - call bubble_reader.read_omr()
-    - create AssessmentAttempt records
-    - compute scores or percentages
-    - write to any table other than ProcessingFile
+    This function does NOT commit the transaction.  The caller is responsible
+    for committing after all files in the batch are processed.  Each file's
+    evaluation runs in a savepoint so a single failure doesn't roll back
+    previously-succeeded files in the same batch.
     """
-    # M4 stub: assume processing succeeds.
-    # M5 replaces this body with: result = read_omr(file_path, template, question_count)
-    return {"success": True, "result": None}
+    savepoint = db.begin_nested()  # SAVEPOINT
+    try:
+        result = evaluate_and_persist(
+            db,
+            assessment=assessment,
+            student=student,
+            processing_session_id=session_id,
+            file_path=file_path,
+        )
+        savepoint.commit()
+
+        # Clean up the uploaded image on success
+        try:
+            if file_path.exists():
+                file_path.unlink()
+        except OSError:
+            pass  # Non-fatal: file may already be gone
+
+        return {"success": True, "result": result}
+
+    except OMRProcessingError as e:
+        savepoint.rollback()
+        return {"success": False, "error": str(e)}
+    except Exception as e:
+        savepoint.rollback()
+        return {"success": False, "error": f"Unexpected error: {type(e).__name__}: {e}"}
 
 
 # ── Endpoints ──────────────────────────────────────────────────────
@@ -302,7 +378,7 @@ async def create_session(
     db.commit()
     db.refresh(session)
 
-    return _session_to_dict(session)
+    return _session_to_dict(session, db)
 
 
 @router.get("", response_model=list[ProcessingSessionListRead])
@@ -325,13 +401,13 @@ def list_sessions(
     if school_id:
         query = query.filter(ProcessingSession.school_id == school_id)
     sessions = query.order_by(ProcessingSession.created_at.desc()).all()
-    return [_session_to_dict(s) for s in sessions]
+    return [_session_to_dict(s, db) for s in sessions]
 
 
 @router.get("/{session_id}", response_model=ProcessingSessionRead)
 def get_session(session_id: int, db: Session = Depends(get_db)):
     session = _load_session(session_id, db)
-    return _session_to_dict(session)
+    return _session_to_dict(session, db)
 
 
 @router.delete("/{session_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -341,6 +417,15 @@ def delete_session(session_id: int, db: Session = Depends(get_db)):
     upload_dir = _session_dir(session.id)
     if upload_dir.exists():
         shutil.rmtree(upload_dir)
+    # Delete attempts (and their cascade of attempt_questions) before session
+    attempts = (
+        db.query(AssessmentAttempt)
+        .filter(AssessmentAttempt.processing_session_id == session.id)
+        .all()
+    )
+    for att in attempts:
+        db.delete(att)
+    db.flush()
     db.delete(session)
     db.commit()
 
@@ -382,7 +467,7 @@ def validate_session(session_id: int, db: Session = Depends(get_db)):
 
     db.commit()
     db.refresh(session)
-    return _session_to_dict(session)
+    return _session_to_dict(session, db)
 
 
 @router.post("/{session_id}/process")
@@ -392,29 +477,41 @@ def process_session(session_id: int, db: Session = Depends(get_db)):
     if session.status != ProcessingSessionStatus.READY:
         raise HTTPException(422, "Session must be in 'ready' status to process")
 
+    # Pre-flight: check template supports the assessment's question count
+    assessment = session.assessment
+    question_count = len(assessment.questions)
+    template_qc = get_template_question_count()
+    if question_count > template_qc:
+        raise HTTPException(
+            422,
+            f"Assessment has {question_count} questions but the OMR template "
+            f"only supports {template_qc}. Recalibrate the template or reduce "
+            f"the number of questions.",
+        )
+
     session.status = ProcessingSessionStatus.PROCESSING
     session.started_at = datetime.now(timezone.utc)
     db.flush()
 
-    # Process each VALID file
-    assessment = session.assessment
-    question_count = len(assessment.questions)
-
+    # Process each VALID file independently
     for f in session.files:
         if f.status != ProcessingFileStatus.VALID:
             continue
 
         file_path = _session_dir(session.id) / f.original_filename
         result = process_single_omr_file(
+            db,
             file_path=file_path,
             question_count=question_count,
             session_id=session.id,
             file_id=f.id,
+            assessment=assessment,
+            student=f.student,
         )
 
         if result["success"]:
             f.status = ProcessingFileStatus.PROCESSED
-            # M5 will store: f.omr_result = result["result"]
+            f.error_message = None
         else:
             f.status = ProcessingFileStatus.FAILED
             f.error_message = result.get("error", "Processing failed")
@@ -432,7 +529,7 @@ def process_session(session_id: int, db: Session = Depends(get_db)):
     session.completed_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(session)
-    return _session_to_dict(session)
+    return _session_to_dict(session, db)
 
 
 @router.get("/{session_id}/progress", response_model=ProcessingProgressRead)
@@ -483,10 +580,13 @@ def retry_failed(session_id: int, payload: RetryRequest, db: Session = Depends(g
 
         file_path = _session_dir(session.id) / f.original_filename
         result = process_single_omr_file(
+            db,
             file_path=file_path,
             question_count=question_count,
             session_id=session.id,
             file_id=f.id,
+            assessment=assessment,
+            student=f.student,
         )
 
         if result["success"]:
@@ -513,7 +613,7 @@ def retry_failed(session_id: int, payload: RetryRequest, db: Session = Depends(g
     session.completed_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(session)
-    return _session_to_dict(session)
+    return _session_to_dict(session, db)
 
 
 @router.delete("/{session_id}/files/{file_id}", status_code=status.HTTP_204_NO_CONTENT)

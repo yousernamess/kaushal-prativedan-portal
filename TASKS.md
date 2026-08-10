@@ -44,25 +44,25 @@ Backend ✅ / Frontend ✅
 
 ---
 
-## Milestone 4 — Process OMR ⬜
+## Milestone 4 — Process OMR ✅
 
-* [ ] Create Assessment Session
-* [ ] Wizard UI
-* [ ] Upload files
-* [ ] Progress indicator
-* [ ] Error handling
-* [ ] Automatically pass the assessment question count to the OMR extractor
+* [x] Create Assessment Session
+* [x] Wizard UI
+* [x] Upload files
+* [x] Progress indicator
+* [x] Error handling
+* [x] Automatically pass the assessment question count to the OMR extractor
 
 ---
 
-## Milestone 5 — OMR Integration ⬜
+## Milestone 5 — OMR Integration ✅
 
-* [ ] Connect existing OMR module
-* [ ] Parse returned JSON
-* [ ] Match student
-* [ ] Compare answers
-* [ ] Save attempts
-* [ ] Delete uploaded images
+* [x] Connect existing OMR module
+* [x] Parse returned JSON
+* [x] Match student
+* [x] Compare answers
+* [x] Save attempts
+* [x] Delete uploaded images
 
 ---
 

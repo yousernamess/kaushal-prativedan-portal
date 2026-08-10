@@ -30,7 +30,8 @@ export function StepResults({ session, onNewSession }: Props) {
     },
   });
 
-  const failedFiles = session.files.filter((f) => f.status === "FAILED");
+  const files = session.files ?? [];
+  const failedFiles = files.filter((f) => f.status === "FAILED");
   const retriableFiles = failedFiles.filter((f) => f.retry_count < 3);
 
   const handleRetry = () => {
@@ -68,27 +69,42 @@ export function StepResults({ session, onNewSession }: Props) {
             <table className="w-full text-left text-sm">
               <thead className="bg-slate-50 text-slate-500">
                 <tr>
-                  <th className="px-4 py-3 font-medium">Filename</th>
                   <th className="px-4 py-3 font-medium">Roll Number</th>
                   <th className="px-4 py-3 font-medium">Student</th>
+                  <th className="px-4 py-3 font-medium text-center">Score</th>
+                  <th className="px-4 py-3 font-medium text-center">Percentage</th>
                   <th className="px-4 py-3 font-medium">Status</th>
                 </tr>
               </thead>
               <tbody>
-                {session.files
+                {files
                   .filter((f) => f.status === "PROCESSED")
-                  .map((f: ProcessingFile) => (
-                    <tr key={f.id} className="border-t">
-                      <td className="px-4 py-3 font-medium text-slate-900">{f.original_filename}</td>
-                      <td className="px-4 py-3 text-slate-700">{f.roll_number}</td>
-                      <td className="px-4 py-3 text-slate-700">{f.student_name ?? "—"}</td>
-                      <td className="px-4 py-3">
-                        <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${FILE_STATUS_COLORS[f.status]}`}>
-                          {FILE_STATUS_LABELS[f.status]}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
+                  .map((f: ProcessingFile) => {
+                    const att = f.attempt;
+                    return (
+                      <tr key={f.id} className="border-t">
+                        <td className="px-4 py-3 text-slate-700">{f.roll_number}</td>
+                        <td className="px-4 py-3 font-medium text-slate-900">{f.student_name ?? "—"}</td>
+                        <td className="px-4 py-3 text-center font-medium text-slate-900">
+                          {att ? `${att.score}/${att.total_questions}` : "—"}
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          {att ? (
+                            <span className={`font-semibold ${
+                              (att.percentage ?? 0) >= 60 ? "text-green-700" : (att.percentage ?? 0) >= 40 ? "text-amber-700" : "text-red-700"
+                            }`}>
+                              {Number(att.percentage ?? 0).toFixed(1)}%
+                            </span>
+                          ) : "—"}
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${FILE_STATUS_COLORS[f.status]}`}>
+                            {FILE_STATUS_LABELS[f.status]}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
               </tbody>
             </table>
           </div>
@@ -156,7 +172,7 @@ export function StepResults({ session, onNewSession }: Props) {
                 </tr>
               </thead>
               <tbody>
-                {session.files
+                {files
                   .filter((f) => f.status === "INVALID")
                   .map((f: ProcessingFile) => (
                     <tr key={f.id} className="border-t">

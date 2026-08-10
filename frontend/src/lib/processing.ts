@@ -34,6 +34,30 @@ export type SchoolSummary = {
   student_count: number;
 };
 
+export type AttemptQuestion = {
+  id: number;
+  attempt_id: number;
+  question_id: number;
+  detected_answer: string | null;
+  correct_answer: string;
+  is_correct: boolean;
+  domain: string;
+};
+
+export type Attempt = {
+  id: number;
+  assessment_id: number;
+  student_id: number;
+  processing_session_id: number;
+  score: number;
+  total_questions: number;
+  percentage: number;
+  status: "COMPLETED" | "FAILED";
+  created_at: string;
+  completed_at: string | null;
+  questions: AttemptQuestion[];
+};
+
 export type ProcessingFile = {
   id: number;
   session_id: number;
@@ -46,6 +70,7 @@ export type ProcessingFile = {
   retry_count: number;
   created_at: string;
   updated_at: string;
+  attempt: Attempt | null;
 };
 
 export type ProcessingSession = {
@@ -153,7 +178,7 @@ export const processingApi = {
 
   /** Start processing valid files in a session. */
   process: (id: number) =>
-    api.post<{ status: string; message: string }>(`/processing-sessions/${id}/process`).then((r) => r.data),
+    api.post<ProcessingSession>(`/processing-sessions/${id}/process`).then((r) => r.data),
 
   /** Get processing progress for a session. */
   progress: (id: number) =>

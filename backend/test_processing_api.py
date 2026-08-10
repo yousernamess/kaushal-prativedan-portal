@@ -8,6 +8,7 @@ import requests
 
 BASE = "http://127.0.0.1:8000"
 OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "output", "test_uploads")
+OMR_SAMPLES = os.path.join(os.path.dirname(__file__), "..", "omrExtractor", "input")
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 passed = 0
@@ -24,8 +25,18 @@ def test(name, condition, detail=""):
         failed += 1
 
 
-def create_test_image(filename, content=b"fake image content"):
-    """Create a test file in the output directory."""
+def create_test_image(filename, content=None):
+    """Create a test file in the output directory.
+    If content is None, use a real OMR sample image.
+    """
+    if content is None:
+        # Use a real OMR sample image
+        sample = os.path.join(OMR_SAMPLES, "101.jpeg")
+        if os.path.exists(sample):
+            with open(sample, "rb") as f:
+                content = f.read()
+        else:
+            content = b"\xff\xd8\xff\xe0" + b"\x00" * 500  # minimal JPEG-like bytes
     path = os.path.join(OUTPUT_DIR, filename)
     with open(path, "wb") as f:
         f.write(content)
@@ -39,7 +50,8 @@ r = requests.get(f"{BASE}/assessments")
 test("List assessments", r.status_code == 200)
 assessments = r.json()
 test("Has assessments", len(assessments) > 0, f"Found {len(assessments)}")
-assessment = assessments[0]
+# Pick the first assessment that has questions
+assessment = next((a for a in assessments if len(a.get("questions", [])) > 0), assessments[0])
 assessment_id = assessment["id"]
 print(f"  Using assessment: {assessment['name']} (id={assessment_id}, questions={len(assessment.get('questions', []))})")
 
@@ -61,18 +73,26 @@ print(f"  Students: {[s['roll_number'] for s in students[:5]]}")
 # ── Test 2: Create session with valid files ───────────────────────
 
 print("\n=== Test 2: Create session with valid and invalid files ===")
-# Create test files
+# Create test files using real OMR images for valid entries
 test_files = []
 first_student_roll = str(students[0]["roll_number"])
 second_student_roll = str(students[1]["roll_number"]) if len(students) > 1 else "999"
 
-# Valid files
-test_files.append(("files", (first_student_roll + ".jpg", b"fake jpg 1", "image/jpeg")))
-test_files.append(("files", (second_student_roll + ".png", b"fake png 2", "image/png")))
+# Load real OMR images for valid files
+sample_101 = os.path.join(OMR_SAMPLES, "101.jpeg")
+sample_104 = os.path.join(OMR_SAMPLES, "104.jpeg")
+with open(sample_101, "rb") as f:
+    real_img_1 = f.read()
+with open(sample_104, "rb") as f:
+    real_img_2 = f.read()
+
+# Valid files (real OMR images)
+test_files.append(("files", (first_student_roll + ".jpeg", real_img_1, "image/jpeg")))
+test_files.append(("files", (second_student_roll + ".jpeg", real_img_2, "image/jpeg")))
 # Invalid filename
-test_files.append(("files", ("invalid_name.jpg", b"bad name", "image/jpeg")))
+test_files.append(("files", ("invalid_name.jpg", real_img_1, "image/jpeg")))
 # Unsupported extension
-test_files.append(("files", ("123.bmp", b"bmp file", "image/bmp")))
+test_files.append(("files", ("123.bmp", real_img_1, "image/bmp")))
 
 r = requests.post(
     f"{BASE}/processing-sessions",
@@ -141,9 +161,9 @@ else:
 
 print("\n=== Test 5: Duplicate roll number detection ===")
 dup_files = []
-dup_files.append(("files", ("101.jpg", b"dup 1", "image/jpeg")))
-dup_files.append(("files", ("101.jpg", b"dup 2", "image/jpeg")))
-dup_files.append(("files", ("102.png", b"ok file", "image/png")))
+dup_files.append(("files", ("101.jpeg", real_img_1, "image/jpeg")))
+dup_files.append(("files", ("101.jpeg", real_img_1, "image/jpeg")))
+dup_files.append(("files", ("102.jpeg", real_img_2, "image/jpeg")))
 
 r = requests.post(
     f"{BASE}/processing-sessions",
@@ -198,7 +218,7 @@ test("Session in list has school", "school" in sessions_list[0])
 
 print("\n=== Test 8: Delete session ===")
 # Create a session to delete
-del_files = [("files", ("500.jpg", b"del test", "image/jpeg"))]
+del_files = [("files", ("500.jpeg", real_img_1, "image/jpeg"))]
 r = requests.post(
     f"{BASE}/processing-sessions",
     params={"assessment_id": assessment_id, "school_id": school_id},
