@@ -275,12 +275,40 @@ class StudentAnalyticsResponse(BaseModel):
     wrong: int
     percentage: float
     domains: list[DomainBreakdown]
+    school_domains: list[DomainBreakdown]
+    overall_domains: list[DomainBreakdown]
     school_average: float
     overall_average: float
     school_rank: int
     overall_rank: int
     school_percentile: float
     overall_percentile: float
+    assessment_name: str
+    assessment_type: AssessmentType
+    academic_year_name: str
+
+
+# ── M7: Student Report Question-Level Schemas ─────────────────────
+
+
+class StudentReportQuestionItem(BaseModel):
+    question_number: int
+    question_text: str | None
+    domain: str
+    detected_answer: str | None
+    correct_answer: str
+    is_correct: bool
+    option_a: str | None = None
+    option_b: str | None = None
+    option_c: str | None = None
+    option_d: str | None = None
+    percent_correct: float = 0.0
+
+
+class StudentReportQuestionsResponse(BaseModel):
+    assessment_id: int
+    student_id: int
+    questions: list[StudentReportQuestionItem]
 
 
 # ── M6B: Question Analytics Schemas ────────────────────────────────

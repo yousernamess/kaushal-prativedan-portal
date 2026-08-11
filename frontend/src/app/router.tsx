@@ -7,6 +7,7 @@ import { DashboardPage } from "../pages/dashboard-page";
 import { MasterDataPage } from "../pages/master-data-page";
 import { ProcessOmrPage } from "../pages/process-omr-page";
 import { ReportsPage } from "../pages/reports-page";
+import { StudentReportPage } from "../pages/student-report-page";
 
 export const router = createBrowserRouter([{ path: "/", element: <AppLayout />, children: [
   { index: true, element: <DashboardPage /> },
@@ -16,4 +17,5 @@ export const router = createBrowserRouter([{ path: "/", element: <AppLayout />, 
   { path: "process-omr", element: <ProcessOmrPage /> },
   { path: "analytics", element: <AnalyticsPage /> },
   { path: "reports", element: <ReportsPage /> },
+  { path: "reports/students/:studentId/assessments/:assessmentId", element: <StudentReportPage /> },
 ]}]);

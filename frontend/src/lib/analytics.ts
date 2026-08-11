@@ -69,12 +69,17 @@ export type StudentDetail = {
   wrong: number;
   percentage: number;
   domains: DomainBreakdown[];
+  school_domains: DomainBreakdown[];
+  overall_domains: DomainBreakdown[];
   school_average: number;
   overall_average: number;
   school_rank: number;
   overall_rank: number;
   school_percentile: number;
   overall_percentile: number;
+  assessment_name: string;
+  assessment_type: string;
+  academic_year_name: string;
 };
 
 export type QuestionItem = {
@@ -117,6 +122,28 @@ export type QuestionHistory = {
   history: HistoricalAppearance[];
 };
 
+// ── M7: Student Report Question Types ─────────────────────────────
+
+export type StudentReportQuestion = {
+  question_number: number;
+  question_text: string | null;
+  domain: string;
+  detected_answer: string | null;
+  correct_answer: string;
+  is_correct: boolean;
+  option_a: string | null;
+  option_b: string | null;
+  option_c: string | null;
+  option_d: string | null;
+  percent_correct: number;
+};
+
+export type StudentReportQuestions = {
+  assessment_id: number;
+  student_id: number;
+  questions: StudentReportQuestion[];
+};
+
 // ── API Functions ──────────────────────────────────────────────────
 
 export const analyticsApi = {
@@ -134,4 +161,7 @@ export const analyticsApi = {
 
   questionHistory: (assessmentId: number, questionId: number, params?: { school_id?: number; class_number?: number; section?: string }) =>
     api.get<QuestionHistory>(`/analytics/assessments/${assessmentId}/questions/${questionId}/history`, { params }).then((r) => r.data),
+
+  studentReportQuestions: (assessmentId: number, studentId: number) =>
+    api.get<StudentReportQuestions>(`/analytics/assessments/${assessmentId}/students/${studentId}/questions`).then((r) => r.data),
 };

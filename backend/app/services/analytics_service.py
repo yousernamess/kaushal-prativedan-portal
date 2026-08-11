@@ -378,7 +378,7 @@ def student_analytics(
     student_id: int,
 ) -> dict:
     """Analytics for a specific student in a specific assessment."""
-    _verify_assessment(db, assessment_id)
+    assessment = _verify_assessment(db, assessment_id)
 
     # Verify student exists
     student = db.get(Student, student_id)
@@ -446,6 +446,12 @@ def student_analytics(
     # Percentile — overall
     overall_pct = _percentile(_to_float(att.percentage), all_percentages)
 
+    # School domain averages (across all school students in this assessment)
+    school_domain_breakdown = _domain_breakdown_from_attempts(school_attempts)
+
+    # Overall domain averages (across all students in this assessment)
+    overall_domain_breakdown = _domain_breakdown_from_attempts(all_attempts)
+
     return {
         "assessment_id": assessment_id,
         "student_id": student_id,
@@ -460,12 +466,17 @@ def student_analytics(
         "wrong": att.total_questions - att.score,
         "percentage": _to_float(att.percentage),
         "domains": domains,
+        "school_domains": school_domain_breakdown,
+        "overall_domains": overall_domain_breakdown,
         "school_average": school_avg,
         "overall_average": overall_avg,
         "school_rank": school_rank,
         "overall_rank": overall_rank,
         "school_percentile": school_pct,
         "overall_percentile": overall_pct,
+        "assessment_name": assessment.name,
+        "assessment_type": assessment.assessment_type.value,
+        "academic_year_name": assessment.academic_year.name if assessment.academic_year else "",
     }
 
 
@@ -670,4 +681,75 @@ def question_history(
             "percentage": current_pct,
         },
         "history": history,
+    }
+
+
+# ── M7: Student Report Questions ──────────────────────────────────
+
+
+def student_report_questions(
+    db: Session,
+    assessment_id: int,
+    student_id: int,
+) -> dict:
+    """Per-question breakdown for a single student's attempt.
+
+    Returns the AttemptQuestion rows joined with Question data for the
+    student report's question analysis table. Includes option text and
+    school-level "% got right" for each question.
+    """
+    _verify_assessment(db, assessment_id)
+
+    student = db.get(Student, student_id)
+    if not student:
+        raise ValueError(f"Student {student_id} not found")
+
+    att = _verify_student_attempt(db, assessment_id, student_id)
+
+    # Fetch all questions for this assessment
+    from app.models import Question
+    questions = (
+        db.query(Question)
+        .filter(Question.assessment_id == assessment_id)
+        .all()
+    )
+    q_by_id = {q.id: q for q in questions}
+
+    # Get all school-level attempts for "% got right" calculation
+    school_attempts = _get_completed_attempts(db, assessment_id, school_id=student.school_id)
+
+    # Build per-question correct counts from school attempts
+    q_correct_counts: dict[int, int] = {}  # question_id -> correct count
+    q_total_counts: dict[int, int] = {}    # question_id -> total count
+    for sa in school_attempts:
+        for saq in sa.questions:
+            qid = saq.question_id
+            q_total_counts[qid] = q_total_counts.get(qid, 0) + 1
+            if saq.is_correct:
+                q_correct_counts[qid] = q_correct_counts.get(qid, 0) + 1
+
+    items = []
+    for aq in sorted(att.questions, key=lambda a: q_by_id.get(a.question_id, a).question_number):
+        q = q_by_id.get(aq.question_id)
+        total = q_total_counts.get(aq.question_id, 0)
+        correct = q_correct_counts.get(aq.question_id, 0)
+        pct_right = round(correct / total * 100, 1) if total > 0 else 0.0
+        items.append({
+            "question_number": q.question_number if q else 0,
+            "question_text": q.question_text if q else None,
+            "domain": aq.domain,
+            "detected_answer": aq.detected_answer,
+            "correct_answer": aq.correct_answer,
+            "is_correct": aq.is_correct,
+            "option_a": q.option_a if q else None,
+            "option_b": q.option_b if q else None,
+            "option_c": q.option_c if q else None,
+            "option_d": q.option_d if q else None,
+            "percent_correct": pct_right,
+        })
+
+    return {
+        "assessment_id": assessment_id,
+        "student_id": student_id,
+        "questions": items,
     }

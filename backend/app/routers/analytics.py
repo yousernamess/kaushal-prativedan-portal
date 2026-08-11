@@ -10,6 +10,7 @@ from app.schemas import (
     QuestionHistoryResponse,
     SchoolAnalyticsResponse,
     StudentAnalyticsResponse,
+    StudentReportQuestionsResponse,
 )
 from app.services.analytics_service import (
     assessment_overview,
@@ -17,6 +18,7 @@ from app.services.analytics_service import (
     question_history,
     school_analytics,
     student_analytics,
+    student_report_questions,
 )
 
 router = APIRouter(prefix="/analytics", tags=["Analytics"])
@@ -124,6 +126,26 @@ def get_question_history(
             db, assessment_id, question_id,
             school_id=school_id, class_number=class_number, section=section,
         )
+    except ValueError as e:
+        raise HTTPException(404, str(e))
+    return result
+
+
+# ── M7: Student Report Questions ──────────────────────────────────
+
+
+@router.get(
+    "/assessments/{assessment_id}/students/{student_id}/questions",
+    response_model=StudentReportQuestionsResponse,
+)
+def get_student_report_questions(
+    assessment_id: int,
+    student_id: int,
+    db: Session = Depends(get_db),
+):
+    """Per-question breakdown for a single student's attempt (M7 report)."""
+    try:
+        result = student_report_questions(db, assessment_id, student_id)
     except ValueError as e:
         raise HTTPException(404, str(e))
     return result
