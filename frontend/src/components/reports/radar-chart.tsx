@@ -96,7 +96,7 @@ export function ReportRadarChart({ studentDomains, schoolDomains, overallDomains
           />
           <Tooltip
             contentStyle={{ fontSize: 12, borderRadius: 8 }}
-            formatter={(value: number) => `${value.toFixed(1)}%`}
+            formatter={(value) => `${Number(value).toFixed(1)}%`}
           />
         </RadarChart>
       </ResponsiveContainer>

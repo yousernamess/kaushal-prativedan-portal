@@ -14,7 +14,7 @@ export function ReportsPage() {
   const aid = Number(assessmentId);
   const sid = Number(schoolId);
 
-  const assessmentsQ = useQuery({ queryKey: ["assessments"], queryFn: assessmentApi.list });
+  const assessmentsQ = useQuery({ queryKey: ["assessments"], queryFn: () => assessmentApi.list() });
   const assessments = (assessmentsQ.data ?? []).filter((a: Assessment) => !a.is_deleted);
 
   // Fetch overview to get school list for the selected assessment

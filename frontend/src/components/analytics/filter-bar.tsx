@@ -19,7 +19,7 @@ export function FilterBar({
   assessmentId, schoolId, classNumber, section,
   onChangeAssessment, onChangeSchool, onChangeClass, onChangeSection,
 }: Props) {
-  const assessmentsQ = useQuery({ queryKey: ["assessments"], queryFn: assessmentApi.list });
+  const assessmentsQ = useQuery({ queryKey: ["assessments"], queryFn: () => assessmentApi.list() });
   const schoolsQ = useQuery({ queryKey: ["schools"], queryFn: masterApi.schools });
   const sectionsQ = useQuery({ queryKey: ["sections"], queryFn: masterApi.sections });
 
