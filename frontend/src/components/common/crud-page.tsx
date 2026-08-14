@@ -59,8 +59,16 @@ function editableValues(row: Record<string, unknown>, fc?: Record<string, FieldC
 
 function extractErrorMessage(err: unknown): string {
   if (err && typeof err === "object" && "response" in err) {
-    const resp = (err as { response?: { data?: { detail?: string } } }).response;
-    if (resp?.data?.detail) return resp.data.detail;
+    const resp = (err as { response?: { data?: { detail?: unknown } } }).response;
+    const detail = resp?.data?.detail;
+    if (detail) {
+      if (typeof detail === "string") return detail;
+      if (Array.isArray(detail) && detail.length > 0) {
+        const first = detail[0];
+        if (first && typeof first === "object" && "msg" in first) return String((first as { msg: string }).msg);
+      }
+      return "Validation error. Please check your input.";
+    }
   }
   return "Something went wrong. Please try again.";
 }

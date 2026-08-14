@@ -1,5 +1,6 @@
+import re
 from datetime import datetime
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.models import AssessmentType, AttemptStatus, ProcessingFileStatus, ProcessingSessionStatus
 
@@ -23,11 +24,27 @@ class SchoolRead(SchoolBase, ORMModel):
 
 
 class AcademicYearBase(BaseModel):
-    name: str = Field(pattern=r"^\d{4}-\d{2}$")
+    name: str = Field(min_length=1, max_length=20)
 
 
-class AcademicYearCreate(AcademicYearBase): pass
-class AcademicYearUpdate(AcademicYearBase): pass
+class AcademicYearCreate(AcademicYearBase):
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, v: str) -> str:
+        if not re.match(r"^\d{4}-\d{2}$", v):
+            raise ValueError("Must be in YYYY-YY format (e.g. 2026-27)")
+        return v
+
+
+class AcademicYearUpdate(AcademicYearBase):
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, v: str) -> str:
+        if not re.match(r"^\d{4}-\d{2}$", v):
+            raise ValueError("Must be in YYYY-YY format (e.g. 2026-27)")
+        return v
+
+
 class AcademicYearRead(AcademicYearBase, ORMModel):
     id: int
 

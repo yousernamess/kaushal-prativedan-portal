@@ -22,11 +22,14 @@ export function StepResults({ session, onNewSession }: Props) {
       toast("Retry started for failed files");
     },
     onError: (err: unknown) => {
-      const msg =
+      const raw =
         err && typeof err === "object" && "response" in err
-          ? (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
-          : "Retry failed";
-      toast(msg ?? "Retry failed");
+          ? (err as { response?: { data?: { detail?: unknown } } }).response?.data?.detail
+          : undefined;
+      let msg = "Retry failed";
+      if (typeof raw === "string") msg = raw;
+      else if (Array.isArray(raw) && raw.length > 0 && typeof raw[0] === "object" && "msg" in raw[0]) msg = String((raw[0] as { msg: string }).msg);
+      toast(msg);
     },
   });
 
