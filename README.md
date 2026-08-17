@@ -71,20 +71,55 @@ kaushal-prativedan-portal/
 ### Quick Start (first time on a new machine)
 
 ```powershell
-# Clone the repo
-git clone <repo-url> && cd kaushal-prativedan-portal
+# 1. Clone the repo (includes the omrExtractor submodule)
+git clone --recurse-submodules <repo-url>
+cd kaushal-prativedan-portal
 
-# Run the setup script (Windows PowerShell)
+# 2. Run the setup script (Windows PowerShell)
 .\setup.ps1
 ```
 
-The script creates `.env` files from `.env.example`, sets up the Python virtual environment, installs dependencies, runs migrations, and installs frontend packages.
+The script automatically:
+- Initializes the `omrExtractor` git submodule
+- Creates `.env` files from `.env.example` templates
+- Sets up the Python virtual environment and installs backend + omrExtractor dependencies
+- Runs database migrations (`alembic upgrade head`)
+- Installs frontend packages (`npm install`)
+
+> **After running the script**, open `backend/.env` and set `DATABASE_URL` to your PostgreSQL connection string (see below).
 
 ### Prerequisites
 
 - Python 3.12+
 - Node.js 18+
 - PostgreSQL (local install or Railway account)
+- Git (with submodule support)
+
+### Manual Setup (if you skip the script)
+
+```powershell
+# 1. Clone with submodules
+git clone --recurse-submodules <repo-url>
+cd kaushal-prativedan-portal
+
+# 2. Backend
+cd backend
+copy .env.example .env        # then edit DATABASE_URL
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+pip install -r ..\omrExtractor\requirements.txt   # pillow, matplotlib, etc.
+alembic upgrade head
+uvicorn app.main:app --reload
+
+# 3. Frontend (separate terminal)
+cd frontend
+copy .env.example .env
+npm install
+npm run dev
+```
+
+> If you cloned **without** `--recurse-submodules`, run `git submodule update --init --recursive` to fetch the `omrExtractor` submodule. Without it, the backend will fail to start.
 
 ### Environment Variables
 

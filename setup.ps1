@@ -5,6 +5,15 @@ $ErrorActionPreference = "Stop"
 
 Write-Host "=== Kaushal Prativedan Portal Setup ===" -ForegroundColor Cyan
 
+# --- Git submodules (omrExtractor) ---
+Write-Host "[..] Initializing git submodules ..." -ForegroundColor Cyan
+git submodule update --init --recursive
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "[WARN] Submodule init failed. omrExtractor may be empty." -ForegroundColor Yellow
+} else {
+    Write-Host "[OK] Git submodules initialized." -ForegroundColor Green
+}
+
 # --- Backend .env ---
 $backendEnv = "backend\.env"
 $backendExample = "backend\.env.example"
@@ -50,6 +59,18 @@ if (-not (Test-Path $backendVenv)) {
     Write-Host "[OK] Backend venv already exists, skipping." -ForegroundColor Gray
 }
 
+# --- omrExtractor deps (pillow, matplotlib, etc.) ---
+if (Test-Path "omrExtractor\requirements.txt") {
+    Write-Host "[..] Installing omrExtractor dependencies ..." -ForegroundColor Cyan
+    Push-Location backend
+    & .\.venv\Scripts\Activate.ps1
+    pip install -r ..\omrExtractor\requirements.txt
+    Pop-Location
+    Write-Host "[OK] omrExtractor dependencies installed." -ForegroundColor Green
+} else {
+    Write-Host "[WARN] omrExtractor\requirements.txt not found. Check that the submodule was initialized." -ForegroundColor Yellow
+}
+
 # --- Alembic migrations ---
 Write-Host "[..] Running database migrations ..." -ForegroundColor Cyan
 Push-Location backend
@@ -74,3 +95,4 @@ Write-Host "=== Setup Complete ===" -ForegroundColor Cyan
 Write-Host "1. Make sure PostgreSQL is running and backend/.env has the correct DATABASE_URL."
 Write-Host "2. Start backend:  cd backend  ; .venv\Scripts\Activate.ps1 ; uvicorn app.main:app --reload"
 Write-Host "3. Start frontend: cd frontend ; npm run dev"
+Write-Host "4. omrExtractor submodule + deps are installed. Calibration template: omrExtractor/templates/calibration_points.json"
