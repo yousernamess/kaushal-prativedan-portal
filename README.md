@@ -68,38 +68,35 @@ kaushal-prativedan-portal/
 
 ## Setup
 
+### Quick Start (first time on a new machine)
+
+```powershell
+# Clone the repo
+git clone <repo-url> && cd kaushal-prativedan-portal
+
+# Run the setup script (Windows PowerShell)
+.\setup.ps1
+```
+
+The script creates `.env` files from `.env.example`, sets up the Python virtual environment, installs dependencies, runs migrations, and installs frontend packages.
+
 ### Prerequisites
 
 - Python 3.12+
 - Node.js 18+
-- PostgreSQL (or Railway account)
-
-### Backend
-
-```bash
-cd backend
-python -m venv .venv
-.venv\Scripts\Activate.ps1   # Windows
-pip install -r requirements.txt
-alembic upgrade head
-uvicorn app.main:app --reload
-```
-
-Backend runs at `http://127.0.0.1:8000`
-
-### Frontend
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-Frontend runs at `http://localhost:5173`
+- PostgreSQL (local install or Railway account)
 
 ### Environment Variables
 
-**Backend** (`.env` in project root):
+> **Important:** `.env` files are **not** committed to git (they contain secrets).
+> After cloning/pulling, you **must** create them from the `.env.example` templates:
+>
+> ```bash
+> cp backend/.env.example backend/.env   # then edit DATABASE_URL
+> cp frontend/.env.example frontend/.env  # usually works as-is
+> ```
+
+**Backend** (`backend/.env`):
 ```
 DATABASE_URL=postgresql+psycopg://postgres:password@host:port/dbname
 CORS_ORIGINS=http://localhost:5173
