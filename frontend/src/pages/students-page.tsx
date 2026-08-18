@@ -232,6 +232,7 @@ function ImportDialog({
             <div className="rounded-lg bg-slate-50 p-3 text-xs text-slate-500">
               <p className="font-medium text-slate-600">Expected columns:</p>
               <p>Roll Number, Student Name, School, Class, Section</p>
+              <p className="mt-1 text-slate-400">Tip: Use the "Template" button above to download a ready-to-fill CSV.</p>
             </div>
           </>
         )}

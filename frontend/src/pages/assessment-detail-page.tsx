@@ -708,6 +708,9 @@ export function AssessmentDetailPage() {
             <Plus size={16} className="mr-1" /> Add Question
           </Button>
         </div>
+        <p className="text-xs text-slate-400">
+          CSV format: question_number, question_text, option_a, option_b, option_c, option_d, correct_option, domain
+        </p>
       </div>
 
       {importError && (

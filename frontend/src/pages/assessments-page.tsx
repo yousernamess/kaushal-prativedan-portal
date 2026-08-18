@@ -338,10 +338,13 @@ function ActionMenu({
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!open) {
-      // Calculate position for fixed dropdown
+      // Calculate position for fixed dropdown, flip above if near bottom
       const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+      const menuHeight = 120; // approximate menu height
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const flipAbove = spaceBelow < menuHeight;
       setMenuPos({
-        top: rect.bottom + 4,
+        top: flipAbove ? rect.top - menuHeight - 4 : rect.bottom + 4,
         right: window.innerWidth - rect.right,
       });
     }
