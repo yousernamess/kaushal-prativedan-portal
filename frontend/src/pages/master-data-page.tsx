@@ -20,7 +20,7 @@ export function MasterDataPage() {
   return (
     <div>
       <div className="mb-6 border-b border-slate-200">
-        <nav className="flex gap-0 -mb-px" aria-label="Tabs">
+        <nav className="flex gap-0 -mb-px overflow-x-auto" aria-label="Tabs">
           {tabs.map((tab) => (
             <button
               key={tab.key}

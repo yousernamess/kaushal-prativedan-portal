@@ -1,4 +1,5 @@
-import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import { processingApi } from "./processing";
 import type { ProcessingProgress, ProcessingSession } from "./processing";
 
 // ── Persistence ────────────────────────────────────────────────────
@@ -55,16 +56,31 @@ type ProcessOmrWorkflowContextValue = {
 const ProcessOmrWorkflowContext = createContext<ProcessOmrWorkflowContextValue | null>(null);
 
 export function ProcessOmrWorkflowProvider({ children }: { children: ReactNode }) {
-  const persisted = loadPersisted();
-
-  const [stepIndex, setStepIndex] = useState(persisted?.stepIndex ?? 0);
-  const [assessmentId, setAssessmentId] = useState(persisted?.assessmentId ?? "");
-  const [schoolId, setSchoolId] = useState(persisted?.schoolId ?? "");
+  // Lazy initializer: only read localStorage once on mount
+  const [stepIndex, setStepIndex] = useState(() => loadPersisted()?.stepIndex ?? 0);
+  const [assessmentId, setAssessmentId] = useState(() => loadPersisted()?.assessmentId ?? "");
+  const [schoolId, setSchoolId] = useState(() => loadPersisted()?.schoolId ?? "");
   const [files, setFiles] = useState<File[]>([]);
-  const [session, setSession] = useState<ProcessingSession | null>(
-    persisted?.sessionId ? ({ id: persisted.sessionId } as ProcessingSession) : null,
-  );
+  const [session, setSession] = useState<ProcessingSession | null>(() => {
+    const persisted = loadPersisted();
+    return persisted?.sessionId ? ({ id: persisted.sessionId } as ProcessingSession) : null;
+  });
   const [progress, setProgress] = useState<ProcessingProgress | null>(null);
+
+  // Validate stale session on mount
+  const validatedRef = useRef(false);
+  useEffect(() => {
+    if (validatedRef.current || !session?.id) return;
+    validatedRef.current = true;
+    processingApi.get(session.id).catch(() => {
+      // Session no longer exists on backend — clear stale state
+      setSession(null);
+      setStepIndex(0);
+      setAssessmentId("");
+      setSchoolId("");
+      clearPersisted();
+    });
+  }, [session?.id]);
 
   // Persist serializable state on every change
   useEffect(() => {
@@ -77,7 +93,7 @@ export function ProcessOmrWorkflowProvider({ children }: { children: ReactNode }
     });
   }, [stepIndex, assessmentId, schoolId, session?.id, session?.status]);
 
-  const resetWorkflow = () => {
+  const resetWorkflow = useCallback(() => {
     setStepIndex(0);
     setAssessmentId("");
     setSchoolId("");
@@ -85,7 +101,7 @@ export function ProcessOmrWorkflowProvider({ children }: { children: ReactNode }
     setSession(null);
     setProgress(null);
     clearPersisted();
-  };
+  }, []);
 
   return (
     <ProcessOmrWorkflowContext.Provider

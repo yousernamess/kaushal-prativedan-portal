@@ -171,13 +171,13 @@ export function CrudPage({
           actions={(r) => (
             <div className="flex gap-1">
               <button
-                className="rounded px-2 py-1 text-xs text-slate-600 hover:bg-slate-100"
+                className="rounded px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-100"
                 onClick={() => { setSaveError(null); setEditing(r); }}
               >
                 Edit
               </button>
               <button
-                className="rounded px-2 py-1 text-xs text-red-600 hover:bg-red-50"
+                className="rounded px-3 py-1.5 text-xs text-red-600 hover:bg-red-50"
                 onClick={() => setDeleting(r)}
               >
                 Delete

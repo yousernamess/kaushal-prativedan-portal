@@ -6,7 +6,7 @@ type Props = {
 
 export function ReportHeader({ data }: Props) {
   return (
-    <div className="flex items-start justify-between border-b-2 border-blue-700 pb-4">
+    <div className="flex flex-wrap items-start justify-between gap-3 border-b-2 border-blue-700 pb-4">
       <div>
         <h1 className="text-xl font-bold text-blue-800 tracking-tight">
           Kaushal Prativedan

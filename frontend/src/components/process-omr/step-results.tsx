@@ -44,7 +44,7 @@ export function StepResults({ session, onNewSession }: Props) {
   return (
     <div className="space-y-6">
       {/* Summary Cards */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <SummaryCard
           label="Successful"
           value={session.successful_files}

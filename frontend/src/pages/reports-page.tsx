@@ -52,7 +52,7 @@ export function ReportsPage() {
         <select
           value={assessmentId}
           onChange={(e) => { setAssessmentId(e.target.value); setSchoolId(""); }}
-          className="h-10 rounded-md border bg-white px-3 text-sm min-w-[220px]"
+          className="h-10 w-full rounded-md border bg-white px-3 text-sm sm:min-w-[220px]"
         >
           <option value="">Select Assessment...</option>
           {assessments.map((a) => (
@@ -66,7 +66,7 @@ export function ReportsPage() {
           <select
             value={schoolId}
             onChange={(e) => setSchoolId(e.target.value)}
-            className="h-10 rounded-md border bg-white px-3 text-sm min-w-[180px]"
+            className="h-10 w-full rounded-md border bg-white px-3 text-sm sm:min-w-[180px]"
           >
             <option value="">Select School...</option>
             {schools.map((s) => (

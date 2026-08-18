@@ -53,7 +53,7 @@ export function FilterBar({
         <select
           value={assessmentId}
           onChange={(e) => onChangeAssessment(e.target.value)}
-          className="h-10 rounded-md border bg-white px-3 text-sm min-w-[200px]"
+          className="h-10 w-full rounded-md border bg-white px-3 text-sm sm:min-w-[200px]"
         >
           <option value="">Select Assessment...</option>
           {assessments.map((a) => (
@@ -67,7 +67,7 @@ export function FilterBar({
         <select
           value={schoolId}
           onChange={(e) => { onChangeSchool(e.target.value); onChangeSection(""); }}
-          className="h-10 rounded-md border bg-white px-3 text-sm min-w-[160px]"
+          className="h-10 w-full rounded-md border bg-white px-3 text-sm sm:min-w-[160px]"
         >
           <option value="">All Schools</option>
           {schools.map((s) => (
@@ -79,7 +79,7 @@ export function FilterBar({
         <select
           value={classNumber}
           onChange={(e) => { onChangeClass(e.target.value); onChangeSection(""); }}
-          className="h-10 rounded-md border bg-white px-3 text-sm min-w-[130px]"
+          className="h-10 w-full rounded-md border bg-white px-3 text-sm sm:min-w-[130px]"
         >
           <option value="">All Classes</option>
           {classNumbers.map((c) => (
@@ -91,7 +91,7 @@ export function FilterBar({
         <select
           value={section}
           onChange={(e) => onChangeSection(e.target.value)}
-          className="h-10 rounded-md border bg-white px-3 text-sm min-w-[140px]"
+          className="h-10 w-full rounded-md border bg-white px-3 text-sm sm:min-w-[140px]"
         >
           <option value="">All Sections</option>
           {filteredSections.map((s) => (
