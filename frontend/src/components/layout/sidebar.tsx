@@ -7,38 +7,58 @@ import {
   FileBarChart,
   LayoutDashboard,
   ScanLine,
+  Users,
   X,
 } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { cn } from "../../lib/utils";
+import { useAuth } from "../../lib/auth";
 
 // ── Navigation structure ───────────────────────────────────────────
 
 type NavItemData = { to: string; label: string; icon: typeof Database };
 
-const navGroups: { heading?: string; items: NavItemData[] }[] = [
-  {
-    items: [{ to: "/", label: "Dashboard", icon: LayoutDashboard }],
-  },
-  {
+function useNavGroups() {
+  const { isAdmin } = useAuth();
+  const groups: { heading?: string; items: NavItemData[] }[] = [];
+
+  if (isAdmin) {
+    groups.push({ items: [{ to: "/", label: "Dashboard", icon: LayoutDashboard }] });
+  }
+
+  groups.push({
     heading: "Workflow",
     items: [
       { to: "/assessments", label: "Assessments", icon: ClipboardCheck },
       { to: "/process-omr", label: "Process OMR", icon: ScanLine },
     ],
-  },
-  {
+  });
+
+  groups.push({
     heading: "Insights",
     items: [
       { to: "/analytics", label: "Analytics", icon: BarChart3 },
       { to: "/reports", label: "Reports", icon: FileBarChart },
     ],
-  },
-  {
-    heading: "Setup",
-    items: [{ to: "/master-data", label: "Master Data", icon: Database }],
-  },
-];
+  });
+
+  if (isAdmin) {
+    groups.push({
+      heading: "Setup",
+      items: [
+        { to: "/master-data", label: "Master Data", icon: Database },
+        { to: "/users", label: "Users", icon: Users },
+      ],
+    });
+  } else {
+    groups.push({
+      heading: "Setup",
+      items: [{ to: "/master-data", label: "Master Data", icon: Database }],
+    });
+  }
+
+  return groups;
+}
 
 // ── Nav item component ─────────────────────────────────────────────
 
@@ -89,6 +109,8 @@ function SidebarContent({
   collapsed?: boolean;
   onCloseMobile?: () => void;
 }) {
+  const navGroups = useNavGroups();
+
   return (
     <div className="flex h-full flex-col">
       {/* Logo */}

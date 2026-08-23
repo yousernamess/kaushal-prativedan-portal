@@ -7,8 +7,9 @@ from sqlalchemy import String, cast, or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
+from app.auth import get_current_user
 from app.core.database import get_db
-from app.models import School, Section, Student
+from app.models import School, Section, Student, User
 from app.schemas import StudentCreate, StudentRead, StudentUpdate
 
 router = APIRouter(prefix="/students", tags=["Students"])
@@ -21,7 +22,7 @@ def item_or_404(item_id: int, db: Session) -> Student:
 
 
 @router.get("", response_model=list[StudentRead])
-def list_students(search: str | None = None, school_id: int | None = None, class_number: int | None = None, section: str | None = None, db: Session = Depends(get_db)):
+def list_students(search: str | None = None, school_id: int | None = None, class_number: int | None = None, section: str | None = None, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     query = db.query(Student).options(selectinload(Student.school))
     if search:
         term = f"%{search.strip()}%"
@@ -33,7 +34,7 @@ def list_students(search: str | None = None, school_id: int | None = None, class
 
 
 @router.post("", response_model=StudentRead, status_code=status.HTTP_201_CREATED)
-def create_student(payload: StudentCreate, db: Session = Depends(get_db)):
+def create_student(payload: StudentCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     if not db.get(School, payload.school_id): raise HTTPException(422, "School does not exist")
     item = Student(**payload.model_dump()); db.add(item)
     try: db.commit()
@@ -43,7 +44,7 @@ def create_student(payload: StudentCreate, db: Session = Depends(get_db)):
 
 
 @router.put("/{item_id}", response_model=StudentRead)
-def update_student(item_id: int, payload: StudentUpdate, db: Session = Depends(get_db)):
+def update_student(item_id: int, payload: StudentUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     item = item_or_404(item_id, db)
     if not db.get(School, payload.school_id): raise HTTPException(422, "School does not exist")
     for key, value in payload.model_dump().items(): setattr(item, key, value)
@@ -55,12 +56,12 @@ def update_student(item_id: int, payload: StudentUpdate, db: Session = Depends(g
 
 
 @router.delete("/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_student(item_id: int, db: Session = Depends(get_db)):
+def delete_student(item_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     db.delete(item_or_404(item_id, db)); db.commit()
 
 
 @router.post("/import")
-async def import_students(file: UploadFile = File(...), db: Session = Depends(get_db)) -> dict:
+async def import_students(file: UploadFile = File(...), db: Session = Depends(get_db), current_user: User = Depends(get_current_user)) -> dict:
     if not file.filename or not file.filename.lower().endswith(".csv"):
         raise HTTPException(422, "Upload a CSV file")
     rows = list(csv.DictReader(io.StringIO((await file.read()).decode("utf-8-sig"))))
@@ -154,7 +155,7 @@ async def import_students(file: UploadFile = File(...), db: Session = Depends(ge
 
 
 @router.get("/export/csv")
-def export_students(school_id: int | None = None, class_number: int | None = None, section: str | None = None, db: Session = Depends(get_db)) -> StreamingResponse:
+def export_students(school_id: int | None = None, class_number: int | None = None, section: str | None = None, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)) -> StreamingResponse:
     students = list_students(school_id=school_id, class_number=class_number, section=section, db=db)
     output = io.StringIO(); writer = csv.writer(output)
     writer.writerow(["Roll Number", "Student Name", "School", "Class", "Section"])

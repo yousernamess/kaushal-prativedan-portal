@@ -7,15 +7,18 @@ import { router } from "./app/router";
 import "./styles/globals.css";
 import { ToastProvider } from "./components/common/toast";
 import { ProcessOmrWorkflowProvider } from "./lib/process-omr-workflow";
+import { AuthProvider } from "./lib/auth";
 
 createRoot(document.getElementById("root")!).render(
 	<StrictMode>
 		<QueryClientProvider client={queryClient}>
-			<ToastProvider>
-				<ProcessOmrWorkflowProvider>
-					<RouterProvider router={router} />
-				</ProcessOmrWorkflowProvider>
-			</ToastProvider>
+			<AuthProvider>
+				<ToastProvider>
+					<ProcessOmrWorkflowProvider>
+						<RouterProvider router={router} />
+					</ProcessOmrWorkflowProvider>
+				</ToastProvider>
+			</AuthProvider>
 		</QueryClientProvider>
 	</StrictMode>,
 );

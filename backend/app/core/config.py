@@ -7,6 +7,14 @@ class Settings(BaseSettings):
     database_url: str
     cors_origins: str = "http://localhost:5173"
 
+    # Auth
+    secret_key: str = "change-me-in-production-use-openssl-rand-hex-32"
+    jwt_algorithm: str = "HS256"
+    jwt_expiry_minutes: int = 1440  # 24 hours
+    admin_email: str = "admin@kaushal.local"
+    admin_password: str = "admin123"
+    admin_name: str = "Administrator"
+
     model_config = SettingsConfigDict(env_file=".env", case_sensitive=False)
 
     @property

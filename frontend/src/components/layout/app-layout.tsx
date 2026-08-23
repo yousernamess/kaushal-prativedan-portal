@@ -1,7 +1,9 @@
 import { useState, useCallback } from "react";
-import { Outlet } from "react-router-dom";
+import { Navigate, Outlet } from "react-router-dom";
+import { Loader2 } from "lucide-react";
 import { DesktopSidebar, MobileSidebar } from "./sidebar";
 import { TopNav } from "./top-nav";
+import { useAuth } from "../../lib/auth";
 
 const SIDEBAR_COLLAPSED_KEY = "sidebar-collapsed";
 
@@ -14,6 +16,7 @@ function loadCollapsed(): boolean {
 }
 
 export function AppLayout() {
+  const { user, loading } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(loadCollapsed);
 
@@ -28,6 +31,18 @@ export function AppLayout() {
       return next;
     });
   }, []);
+
+  if (loading) {
+    return (
+      <div className="flex min-h-dvh items-center justify-center">
+        <Loader2 size={24} className="animate-spin text-slate-400" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
 
   return (
     <div className="flex min-h-dvh">

@@ -5,8 +5,9 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session, selectinload
 
+from app.auth import get_current_user
 from app.core.database import get_db
-from app.models import AcademicYear, Assessment, Question
+from app.models import AcademicYear, Assessment, Question, User
 from app.schemas import AssessmentCreate, AssessmentRead, AssessmentUpdate, QuestionInput, QuestionRead
 
 # CSV column order (also serves as the export template header row).
@@ -79,7 +80,7 @@ def validate_questions(questions: list[QuestionInput]) -> None:
 
 
 @router.get("", response_model=list[AssessmentRead])
-def list_assessments(academic_year_id: int | None = None, class_number: int | None = None, db: Session = Depends(get_db)):
+def list_assessments(academic_year_id: int | None = None, class_number: int | None = None, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     query = db.query(Assessment).options(selectinload(Assessment.questions)).filter(Assessment.is_deleted.is_(False))
     if academic_year_id: query = query.filter(Assessment.academic_year_id == academic_year_id)
     if class_number: query = query.filter(Assessment.class_number == class_number)
@@ -87,7 +88,7 @@ def list_assessments(academic_year_id: int | None = None, class_number: int | No
 
 
 @router.post("", response_model=AssessmentRead, status_code=status.HTTP_201_CREATED)
-def create_assessment(payload: AssessmentCreate, db: Session = Depends(get_db)):
+def create_assessment(payload: AssessmentCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     if not db.get(AcademicYear, payload.academic_year_id):
         raise HTTPException(422, "Academic year does not exist")
     validate_questions(payload.questions)
@@ -99,12 +100,12 @@ def create_assessment(payload: AssessmentCreate, db: Session = Depends(get_db)):
 
 
 @router.get("/{assessment_id}", response_model=AssessmentRead)
-def get_assessment(assessment_id: int, db: Session = Depends(get_db)):
+def get_assessment(assessment_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     return assessment_or_404(assessment_id, db)
 
 
 @router.put("/{assessment_id}", response_model=AssessmentRead)
-def update_assessment(assessment_id: int, payload: AssessmentUpdate, db: Session = Depends(get_db)):
+def update_assessment(assessment_id: int, payload: AssessmentUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     assessment = assessment_or_404(assessment_id, db)
     if not db.get(AcademicYear, payload.academic_year_id): raise HTTPException(422, "Academic year does not exist")
     for key, value in payload.model_dump().items(): setattr(assessment, key, value)
@@ -113,14 +114,14 @@ def update_assessment(assessment_id: int, payload: AssessmentUpdate, db: Session
 
 
 @router.delete("/{assessment_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_assessment(assessment_id: int, db: Session = Depends(get_db)):
+def delete_assessment(assessment_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     assessment = assessment_or_404(assessment_id, db)
     assessment.is_deleted = True
     db.commit()
 
 
 @router.post("/{assessment_id}/duplicate", response_model=AssessmentRead, status_code=status.HTTP_201_CREATED)
-def duplicate_assessment(assessment_id: int, db: Session = Depends(get_db)):
+def duplicate_assessment(assessment_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     source = assessment_or_404(assessment_id, db)
     duplicate = Assessment(name=f"{source.name} (Copy)", assessment_type=source.assessment_type, academic_year_id=source.academic_year_id, class_number=source.class_number)
     duplicate.questions = [Question(question_number=q.question_number, correct_option=q.correct_option, domain=q.domain) for q in source.questions]
@@ -129,7 +130,7 @@ def duplicate_assessment(assessment_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/{assessment_id}/questions", response_model=QuestionRead, status_code=status.HTTP_201_CREATED)
-def add_question(assessment_id: int, payload: QuestionInput, db: Session = Depends(get_db)):
+def add_question(assessment_id: int, payload: QuestionInput, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     assessment = assessment_or_404(assessment_id, db)
     if len(assessment.questions) >= 40: raise HTTPException(422, "An assessment cannot have more than 40 questions")
     if any(q.question_number == payload.question_number for q in assessment.questions): raise HTTPException(409, "Question number already exists")
@@ -137,7 +138,7 @@ def add_question(assessment_id: int, payload: QuestionInput, db: Session = Depen
 
 
 @router.put("/questions/{question_id}", response_model=QuestionRead)
-def update_question(question_id: int, payload: QuestionInput, db: Session = Depends(get_db)):
+def update_question(question_id: int, payload: QuestionInput, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     item = db.get(Question, question_id)
     if not item: raise HTTPException(404, "Question not found")
     for key, value in payload.model_dump().items(): setattr(item, key, value)
@@ -145,14 +146,14 @@ def update_question(question_id: int, payload: QuestionInput, db: Session = Depe
 
 
 @router.delete("/questions/{question_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_question(question_id: int, db: Session = Depends(get_db)):
+def delete_question(question_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     item = db.get(Question, question_id)
     if not item: raise HTTPException(404, "Question not found")
     db.delete(item); db.commit()
 
 
 @router.get("/{assessment_id}/export", tags=["Assessments"])
-def export_assessment_csv(assessment_id: int, db: Session = Depends(get_db)):
+def export_assessment_csv(assessment_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     """Export an assessment's questions as a downloadable CSV template."""
     assessment = assessment_or_404(assessment_id, db)
     buffer = io.StringIO()
@@ -170,7 +171,7 @@ def export_assessment_csv(assessment_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/{assessment_id}/import", response_model=AssessmentRead, status_code=status.HTTP_201_CREATED)
-def import_assessment_csv(assessment_id: int, file: UploadFile = File(...), db: Session = Depends(get_db)):
+def import_assessment_csv(assessment_id: int, file: UploadFile = File(...), db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     """Replace an assessment's questions from an uploaded CSV file (matching the export template)."""
     assessment = assessment_or_404(assessment_id, db)
     if not file.filename or not file.filename.lower().endswith(".csv"):

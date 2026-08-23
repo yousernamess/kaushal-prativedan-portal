@@ -3,7 +3,9 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
+from app.auth import get_current_user
 from app.core.database import get_db
+from app.models import User
 from app.schemas import (
     AssessmentOverviewResponse,
     QuestionAnalyticsResponse,
@@ -34,6 +36,7 @@ def get_assessment_overview(
     class_number: int | None = Query(None),
     section: str | None = Query(None),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """Assessment-wide analytics with optional school/class/section filters."""
     try:
@@ -57,6 +60,7 @@ def get_school_analytics(
     assessment_id: int,
     school_id: int,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """Analytics for a specific school in a specific assessment."""
     try:
@@ -74,6 +78,7 @@ def get_student_analytics(
     assessment_id: int,
     student_id: int,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """Analytics for a specific student in a specific assessment."""
     try:
@@ -96,6 +101,7 @@ def get_question_analytics(
     class_number: int | None = Query(None),
     section: str | None = Query(None),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """Per-question analytics for an assessment with optional scope filters."""
     try:
@@ -119,6 +125,7 @@ def get_question_history(
     class_number: int | None = Query(None),
     section: str | None = Query(None),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """Historical performance for a specific question across assessments."""
     try:
@@ -142,6 +149,7 @@ def get_student_report_questions(
     assessment_id: int,
     student_id: int,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """Per-question breakdown for a single student's attempt (M7 report)."""
     try:

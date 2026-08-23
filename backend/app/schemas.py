@@ -328,6 +328,53 @@ class StudentReportQuestionsResponse(BaseModel):
     questions: list[StudentReportQuestionItem]
 
 
+# ── Auth Schemas ───────────────────────────────────────────────────
+
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+
+
+class UserRead(ORMModel):
+    id: int
+    email: str
+    full_name: str
+    role: str
+    is_active: bool
+    created_at: datetime
+
+
+class InviteRequest(BaseModel):
+    email: str
+    role: str = "user"
+
+
+class InvitationRead(ORMModel):
+    id: int
+    email: str
+    role: str
+    is_used: bool
+    expires_at: datetime
+    created_at: datetime
+
+
+class AcceptInvitationRequest(BaseModel):
+    token: str
+    password: str
+    full_name: str
+
+
+class UserUpdateRequest(BaseModel):
+    is_active: bool | None = None
+    role: str | None = None
+
+
 # ── M6B: Question Analytics Schemas ────────────────────────────────
 
 

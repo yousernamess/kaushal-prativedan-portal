@@ -206,3 +206,32 @@ class AttemptQuestion(Base):
 
     attempt: Mapped[AssessmentAttempt] = relationship(back_populates="questions")
     question: Mapped[Question] = relationship()
+
+
+# ── Auth Models ────────────────────────────────────────────────────
+
+
+class UserRole(str, Enum):
+    ADMIN = "admin"
+    USER = "user"
+
+
+class User(TimestampMixin, Base):
+    __tablename__ = "users"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    email: Mapped[str] = mapped_column(String(200), unique=True, index=True)
+    hashed_password: Mapped[str] = mapped_column(String(200))
+    full_name: Mapped[str] = mapped_column(String(200))
+    role: Mapped[UserRole] = mapped_column(SqlEnum(UserRole), default=UserRole.USER)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
+class Invitation(TimestampMixin, Base):
+    __tablename__ = "invitations"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    email: Mapped[str] = mapped_column(String(200), index=True)
+    token: Mapped[str] = mapped_column(String(200), unique=True, index=True)
+    role: Mapped[UserRole] = mapped_column(SqlEnum(UserRole), default=UserRole.USER)
+    is_used: Mapped[bool] = mapped_column(Boolean, default=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    invited_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)

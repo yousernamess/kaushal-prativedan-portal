@@ -9,6 +9,7 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, status
 from sqlalchemy.orm import Session, selectinload
 
+from app.auth import get_current_user
 from app.core.database import get_db
 from app.models import (
     Assessment,
@@ -20,6 +21,7 @@ from app.models import (
     ProcessingSessionStatus,
     School,
     Student,
+    User,
 )
 from app.schemas import (
     ProcessingFileRead,
@@ -252,6 +254,7 @@ async def create_session(
     school_id: int,
     files: list[UploadFile],
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     # ── Validate assessment ──
     assessment = (
@@ -384,6 +387,7 @@ async def create_session(
 @router.get("", response_model=list[ProcessingSessionListRead])
 def list_sessions(
     assessment_id: int | None = None,
+    _current_user: User = Depends(get_current_user),
     school_id: int | None = None,
     db: Session = Depends(get_db),
 ):
@@ -405,13 +409,13 @@ def list_sessions(
 
 
 @router.get("/{session_id}", response_model=ProcessingSessionRead)
-def get_session(session_id: int, db: Session = Depends(get_db)):
+def get_session(session_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     session = _load_session(session_id, db)
     return _session_to_dict(session, db)
 
 
 @router.delete("/{session_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_session(session_id: int, db: Session = Depends(get_db)):
+def delete_session(session_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     session = _load_session(session_id, db)
     # Delete files from disk
     upload_dir = _session_dir(session.id)
@@ -431,7 +435,7 @@ def delete_session(session_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/{session_id}/validate", response_model=ProcessingSessionRead)
-def validate_session(session_id: int, db: Session = Depends(get_db)):
+def validate_session(session_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     session = _load_session(session_id, db)
 
     if session.status not in (ProcessingSessionStatus.PENDING, ProcessingSessionStatus.VALIDATING):
@@ -471,7 +475,7 @@ def validate_session(session_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/{session_id}/process")
-def process_session(session_id: int, db: Session = Depends(get_db)):
+def process_session(session_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     session = _load_session(session_id, db)
 
     if session.status != ProcessingSessionStatus.READY:
@@ -533,7 +537,7 @@ def process_session(session_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/{session_id}/progress", response_model=ProcessingProgressRead)
-def get_progress(session_id: int, db: Session = Depends(get_db)):
+def get_progress(session_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     session = _load_session(session_id, db)
     return {
         "session_id": session.id,
@@ -547,7 +551,7 @@ def get_progress(session_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/{session_id}/retry", response_model=ProcessingSessionRead)
-def retry_failed(session_id: int, payload: RetryRequest, db: Session = Depends(get_db)):
+def retry_failed(session_id: int, payload: RetryRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     session = _load_session(session_id, db)
 
     if session.status not in (ProcessingSessionStatus.COMPLETED, ProcessingSessionStatus.PARTIAL, ProcessingSessionStatus.FAILED):
@@ -617,7 +621,7 @@ def retry_failed(session_id: int, payload: RetryRequest, db: Session = Depends(g
 
 
 @router.delete("/{session_id}/files/{file_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_file(session_id: int, file_id: int, db: Session = Depends(get_db)):
+def delete_file(session_id: int, file_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     session = _load_session(session_id, db)
 
     if session.status == ProcessingSessionStatus.PROCESSING:

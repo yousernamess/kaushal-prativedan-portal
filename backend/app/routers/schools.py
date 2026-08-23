@@ -3,8 +3,9 @@ from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.auth import get_current_user
 from app.core.database import get_db
-from app.models import School, Section, Student
+from app.models import School, Section, Student, User
 from app.schemas import SchoolCreate, SchoolRead, SchoolUpdate
 
 router = APIRouter(prefix="/schools", tags=["Schools"])
@@ -18,7 +19,7 @@ def school_or_404(school_id: int, db: Session) -> School:
 
 
 @router.get("", response_model=list[SchoolRead])
-def list_schools(db: Session = Depends(get_db)) -> list[SchoolRead]:
+def list_schools(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)) -> list[SchoolRead]:
     schools = db.query(School).order_by(School.name).all()
     student_counts = dict(
         db.query(Student.school_id, func.count(Student.id))
@@ -39,7 +40,7 @@ def list_schools(db: Session = Depends(get_db)) -> list[SchoolRead]:
 
 
 @router.post("", response_model=SchoolRead, status_code=status.HTTP_201_CREATED)
-def create_school(payload: SchoolCreate, db: Session = Depends(get_db)) -> School:
+def create_school(payload: SchoolCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)) -> School:
     school = School(**payload.model_dump())
     db.add(school)
     try:
@@ -52,7 +53,7 @@ def create_school(payload: SchoolCreate, db: Session = Depends(get_db)) -> Schoo
 
 
 @router.get("/{school_id}", response_model=SchoolRead)
-def get_school(school_id: int, db: Session = Depends(get_db)) -> SchoolRead:
+def get_school(school_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)) -> SchoolRead:
     school = db.get(School, school_id)
     if not school:
         raise HTTPException(404, "School not found")
@@ -65,7 +66,7 @@ def get_school(school_id: int, db: Session = Depends(get_db)) -> SchoolRead:
 
 
 @router.put("/{school_id}", response_model=SchoolRead)
-def update_school(school_id: int, payload: SchoolUpdate, db: Session = Depends(get_db)) -> School:
+def update_school(school_id: int, payload: SchoolUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)) -> School:
     school = school_or_404(school_id, db)
     school.name = payload.name
     try:
@@ -78,7 +79,7 @@ def update_school(school_id: int, payload: SchoolUpdate, db: Session = Depends(g
 
 
 @router.delete("/{school_id}/students", status_code=status.HTTP_200_OK)
-def delete_school_students(school_id: int, db: Session = Depends(get_db)) -> dict:
+def delete_school_students(school_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)) -> dict:
     """Bulk remove all students from a school."""
     school = school_or_404(school_id, db)
     count = db.query(func.count(Student.id)).filter(Student.school_id == school_id).scalar() or 0
@@ -90,7 +91,7 @@ def delete_school_students(school_id: int, db: Session = Depends(get_db)) -> dic
 
 
 @router.delete("/{school_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_school(school_id: int, force: bool = False, db: Session = Depends(get_db)) -> None:
+def delete_school(school_id: int, force: bool = False, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)) -> None:
     school = school_or_404(school_id, db)
     if school.students and not force:
         raise HTTPException(409, "Cannot delete a school that has students")
