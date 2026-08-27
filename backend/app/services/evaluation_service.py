@@ -119,7 +119,6 @@ def evaluate_and_persist(
         attempt.completed_at = datetime.now(timezone.utc)
 
         # Delete old question records and recreate
-        db.query(AssessmentAttempt).filter(AssessmentAttempt.id == attempt.id).update({})
         for old_q in list(attempt.questions):
             db.delete(old_q)
         db.flush()

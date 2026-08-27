@@ -56,12 +56,25 @@ print(f"  Student 2: roll={student2['roll_number']}, name={student2['student_nam
 
 print("\n=== Test 1: Create session with real OMR files ===")
 test_files = []
-sample1 = os.path.join(SAMPLE_DIR, "101.jpeg")
-sample2 = os.path.join(SAMPLE_DIR, "104.jpeg")
-test("Sample image 1 exists", os.path.exists(sample1))
-test("Sample image 2 exists", os.path.exists(sample2))
+sample1 = next(
+    (p for p in [
+        os.path.join(SAMPLE_DIR, "101.jpeg"),
+        os.path.join(os.path.dirname(__file__), "output", "smoke_test", "model_answer_sheet.png"),
+        os.path.join(os.path.dirname(__file__), "output", "uploads", "session_18", "irltest.jpeg"),
+    ] if os.path.exists(p)),
+    None,
+)
+sample2 = next(
+    (p for p in [
+        os.path.join(SAMPLE_DIR, "104.jpeg"),
+        os.path.join(os.path.dirname(__file__), "output", "uploads", "session_36", "123.bmp"),
+    ] if os.path.exists(p)),
+    None,
+)
+test("Sample image 1 exists", sample1 is not None)
+test("Sample image 2 exists", sample2 is not None)
 
-if os.path.exists(sample1) and os.path.exists(sample2):
+if sample1 and sample2:
     # Upload files named after student roll numbers
     with open(sample1, "rb") as f:
         test_files.append(("files", (f"{student1['roll_number']}.jpeg", f.read(), "image/jpeg")))

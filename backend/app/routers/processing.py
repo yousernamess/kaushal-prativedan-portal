@@ -516,6 +516,12 @@ def process_session(session_id: int, db: Session = Depends(get_db)):
             f.status = ProcessingFileStatus.FAILED
             f.error_message = result.get("error", "Processing failed")
 
+        # Commit per file: each sheet's result (or failure) is durable
+        # immediately, so one bad sheet can never roll back or corrupt
+        # already-successful results, and no long-lived transaction holds
+        # locks for the whole batch.
+        db.commit()
+
     _update_counters(session, db)
 
     # Determine final session status
@@ -595,6 +601,9 @@ def retry_failed(session_id: int, payload: RetryRequest, db: Session = Depends(g
         else:
             f.status = ProcessingFileStatus.FAILED
             f.error_message = result.get("error", "Processing failed")
+
+        # Commit per file (same rationale as in process_session).
+        db.commit()
 
     _update_counters(session, db)
 

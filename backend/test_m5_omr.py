@@ -17,6 +17,23 @@ from app.services.omr_service import extract_omr, OMRProcessingError, get_templa
 from app.services.evaluation_service import evaluate_and_persist
 
 SAMPLE_DIR = Path(__file__).resolve().parent.parent / "omrExtractor" / "input"
+BACKEND_OUTPUT = Path(__file__).resolve().parent / "output"
+
+# Sample images: prefer the extractor's own samples; fall back to real OMR
+# images that exist in the backend output tree (smoke test / past uploads).
+_ALIGNED_SAMPLE_CANDIDATES = [
+    SAMPLE_DIR / "101.jpeg",
+    Path(__file__).resolve().parent.parent / "backend" / "output" / "smoke_test" / "model_answer_sheet.png",
+    Path(__file__).resolve().parent.parent / "backend" / "output" / "uploads" / "session_18" / "irltest.jpeg",
+]
+SAMPLE_IMG = next((p for p in _ALIGNED_SAMPLE_CANDIDATES if p.exists()), None)
+
+_ALIGNED_SAMPLE2_CANDIDATES = [
+    SAMPLE_DIR / "104.jpeg",
+    Path(__file__).resolve().parent.parent / "backend" / "output" / "uploads" / "session_36" / "123.bmp",
+]
+SAMPLE_IMG2 = next((p for p in _ALIGNED_SAMPLE2_CANDIDATES if p.exists()), None)
+
 db = SessionLocal()
 
 passed = 0
@@ -64,10 +81,11 @@ test("Template supports assessment", template_qc >= len(questions),
 # ── Test 2: Direct OMR extraction ─────────────────────────────────
 
 print("\n=== Test 2: Direct OMR extraction ===")
-sample_img = SAMPLE_DIR / "101.jpeg"
-test("Sample image exists", sample_img.exists(), str(sample_img))
+sample_img = SAMPLE_IMG
+test("Sample image exists", sample_img is not None,
+     "No aligned sample image found (checked omrExtractor/input and backend/output)")
 
-if sample_img.exists():
+if sample_img is not None:
     result = extract_omr(sample_img, len(questions))
     test("Result is dict", isinstance(result, dict))
     test("Result has correct keys", all(f"Q{i}" in result for i in range(1, len(questions) + 1)),
@@ -203,9 +221,9 @@ except Exception as e:
 # ── Test 5: Second student ────────────────────────────────────────
 
 print("\n=== Test 5: Second student ===")
-if len(students) >= 2 and (SAMPLE_DIR / "104.jpeg").exists():
+if len(students) >= 2 and SAMPLE_IMG2 is not None:
     student2 = students[1]
-    sample_img2 = SAMPLE_DIR / "104.jpeg"
+    sample_img2 = SAMPLE_IMG2
 
     # Clean up
     prior2 = db.query(AssessmentAttempt).filter(
@@ -273,6 +291,160 @@ try:
 except OMRProcessingError as e:
     test("Correctly rejected missing file", "not found" in str(e).lower(),
          f"Error: {e}")
+
+
+# ── Test 8: Alignment failure fails the sheet (C1) ────────────────
+
+print("\n=== Test 8: Alignment failure fails the sheet ===")
+# A blank white image has no corner markers → alignment must fail and
+# bubble detection must NOT run (no misleading result returned).
+import numpy as np  # noqa: E402
+import cv2  # noqa: E402
+
+TEST_TMP_DIR = Path(__file__).resolve().parent / "output" / "test_uploads"
+TEST_TMP_DIR.mkdir(parents=True, exist_ok=True)
+
+unaligned_path = TEST_TMP_DIR / "unaligned_blank.png"
+blank = np.full((3368, 2382, 3), 255, dtype=np.uint8)
+cv2.imwrite(str(unaligned_path), blank)
+test("Unaligned sample created", unaligned_path.exists())
+
+try:
+    extract_omr(unaligned_path, len(questions))
+    test("Alignment failure should raise", False, "extract_omr returned a result")
+except OMRProcessingError as e:
+    test("Alignment failure raises OMRProcessingError", True)
+    test("Error mentions alignment", "alignment" in str(e).lower(), f"Error: {e}")
+    test("Error mentions missing markers", "markers" in str(e).lower(), f"Error: {e}")
+
+# Corrupt image (garbage bytes) must also fail cleanly, not produce a result
+corrupt_path = TEST_TMP_DIR / "corrupt.jpg"
+corrupt_path.write_bytes(b"\xff\xd8\xff\xe0" + b"\x00" * 500)
+try:
+    extract_omr(corrupt_path, len(questions))
+    test("Corrupt image should raise", False, "extract_omr returned a result")
+except OMRProcessingError:
+    test("Corrupt image raises OMRProcessingError", True)
+
+
+# ── Test 9: Successful alignment still processes normally ─────────
+
+print("\n=== Test 9: Successful alignment still works ===")
+aligned_sample = SAMPLE_IMG
+
+if aligned_sample is not None:
+    result_ok = extract_omr(aligned_sample, len(questions))
+    test("Aligned sheet returns dict", isinstance(result_ok, dict))
+    test("Aligned sheet has all keys", all(f"Q{i}" in result_ok for i in range(1, len(questions) + 1)))
+    answered = sum(1 for v in result_ok.values() if v is not None)
+    test("Aligned sheet detects answers", answered > 0, f"Answered: {answered}")
+    print(f"  Sample: {aligned_sample.name}, answered: {answered}/{len(result_ok)}")
+else:
+    print("  SKIPPED: No aligned sample image found")
+
+
+# ── Test 10: Multi-page PDF rejected ──────────────────────────────
+
+print("\n=== Test 10: Multi-page PDF rejected ===")
+import fitz  # noqa: E402
+
+multipage_path = TEST_TMP_DIR / "multipage_test.pdf"
+if not multipage_path.exists():
+    doc = fitz.open()
+    for _ in range(2):
+        doc.new_page(width=595, height=842)
+    doc.save(str(multipage_path))
+
+test("Multi-page test PDF exists", multipage_path.exists())
+try:
+    extract_omr(multipage_path, len(questions))
+    test("Multi-page PDF should raise", False, "extract_omr returned a result")
+except OMRProcessingError as e:
+    test("Multi-page PDF raises OMRProcessingError", True)
+    test("Error mentions multi-page", "multi-page" in str(e).lower(), f"Error: {e}")
+
+# Single-page PDF should NOT be rejected for page count (may still fail
+# alignment if it's not a real OMR sheet — that's fine, just not a page-count error)
+singlepage_path = TEST_TMP_DIR / "singlepage_test.pdf"
+if not singlepage_path.exists():
+    doc = fitz.open()
+    doc.new_page(width=595, height=842)
+    doc.save(str(singlepage_path))
+try:
+    extract_omr(singlepage_path, len(questions))
+    test("Single-page PDF not rejected for page count", True)
+except OMRProcessingError as e:
+    test("Single-page PDF not rejected for page count",
+         "multi-page" not in str(e).lower(), f"Error: {e}")
+
+
+# ── Test 11: Failed sheet leaves no misleading attempt (C4) ───────
+
+print("\n=== Test 11: Failed sheet leaves no attempt ===")
+if len(students) >= 1:
+    student_fail = students[0]
+
+    # Clean up any prior attempt
+    prior = db.query(AssessmentAttempt).filter(
+        AssessmentAttempt.assessment_id == assessment.id,
+        AssessmentAttempt.student_id == student_fail.id,
+    ).first()
+    if prior:
+        db.query(AssessmentAttempt).filter(AssessmentAttempt.id == prior.id).delete()
+        db.commit()
+
+    fail_session = ProcessingSession(
+        assessment_id=assessment.id,
+        school_id=school.id,
+        status=ProcessingSessionStatus.PROCESSING,
+        total_files=1,
+        valid_files=1,
+    )
+    db.add(fail_session)
+    db.commit()  # persist session first so the later rollback doesn't detach it
+    db.refresh(fail_session)
+
+    try:
+        evaluate_and_persist(
+            db,
+            assessment=assessment,
+            student=student_fail,
+            processing_session_id=fail_session.id,
+            file_path=unaligned_path,  # blank image → alignment failure
+        )
+        test("evaluate_and_persist should raise on unaligned sheet", False)
+    except OMRProcessingError:
+        test("evaluate_and_persist raises on unaligned sheet", True)
+
+    db.rollback()
+
+    # No attempt must exist for this student
+    leftover = db.query(AssessmentAttempt).filter(
+        AssessmentAttempt.assessment_id == assessment.id,
+        AssessmentAttempt.student_id == student_fail.id,
+    ).count()
+    test("No attempt left after failed sheet", leftover == 0, f"Found {leftover}")
+
+    # Clean up the test session
+    db.delete(fail_session)
+    db.commit()
+else:
+    print("  SKIPPED: No students available")
+
+
+# ── Test 12: Empty update path removed (C6) ───────────────────────
+
+print("\n=== Test 12: Empty update path removed ===")
+eval_src = (Path(__file__).resolve().parent / "app" / "services" / "evaluation_service.py").read_text(encoding="utf-8")
+test("No empty .update({}) call", ".update({})" not in eval_src)
+
+# Reprocessing (the path that used to contain the empty update) still works:
+# covered by Test 4 above — verify it ran by checking one attempt exists.
+reproc_attempt = db.query(AssessmentAttempt).filter(
+    AssessmentAttempt.assessment_id == assessment.id
+).count()
+test("Reprocessing path still creates attempts", reproc_attempt >= 1,
+     f"Found {reproc_attempt}")
 
 
 # ── Cleanup ────────────────────────────────────────────────────────

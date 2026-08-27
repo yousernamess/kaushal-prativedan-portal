@@ -11,6 +11,20 @@ OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "output", "test_uploads")
 OMR_SAMPLES = os.path.join(os.path.dirname(__file__), "..", "omrExtractor", "input")
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
+# Real OMR sample images: prefer extractor samples, fall back to real images
+# in the backend output tree (smoke test / past uploads).
+_SAMPLE_CANDIDATES = [
+    os.path.join(OMR_SAMPLES, "101.jpeg"),
+    os.path.join(os.path.dirname(__file__), "output", "smoke_test", "model_answer_sheet.png"),
+    os.path.join(os.path.dirname(__file__), "output", "uploads", "session_18", "irltest.jpeg"),
+]
+_SAMPLE_1 = next((p for p in _SAMPLE_CANDIDATES if os.path.exists(p)), None)
+_SAMPLE_2_CANDIDATES = [
+    os.path.join(OMR_SAMPLES, "104.jpeg"),
+    os.path.join(os.path.dirname(__file__), "output", "uploads", "session_36", "123.bmp"),
+]
+_SAMPLE_2 = next((p for p in _SAMPLE_2_CANDIDATES if os.path.exists(p)), None)
+
 passed = 0
 failed = 0
 
@@ -31,8 +45,8 @@ def create_test_image(filename, content=None):
     """
     if content is None:
         # Use a real OMR sample image
-        sample = os.path.join(OMR_SAMPLES, "101.jpeg")
-        if os.path.exists(sample):
+        sample = _SAMPLE_1
+        if sample:
             with open(sample, "rb") as f:
                 content = f.read()
         else:
@@ -79,11 +93,9 @@ first_student_roll = str(students[0]["roll_number"])
 second_student_roll = str(students[1]["roll_number"]) if len(students) > 1 else "999"
 
 # Load real OMR images for valid files
-sample_101 = os.path.join(OMR_SAMPLES, "101.jpeg")
-sample_104 = os.path.join(OMR_SAMPLES, "104.jpeg")
-with open(sample_101, "rb") as f:
+with open(_SAMPLE_1, "rb") as f:
     real_img_1 = f.read()
-with open(sample_104, "rb") as f:
+with open(_SAMPLE_2, "rb") as f:
     real_img_2 = f.read()
 
 # Valid files (real OMR images)
@@ -160,10 +172,14 @@ else:
 # ── Test 5: Duplicate roll number in batch ────────────────────────
 
 print("\n=== Test 5: Duplicate roll number detection ===")
+# Use a roll number that actually exists in the selected school, so the
+# duplicate check (not the "no student found" check) is what triggers.
+dup_roll = str(students[0]["roll_number"])
 dup_files = []
-dup_files.append(("files", ("101.jpeg", real_img_1, "image/jpeg")))
-dup_files.append(("files", ("101.jpeg", real_img_1, "image/jpeg")))
-dup_files.append(("files", ("102.jpeg", real_img_2, "image/jpeg")))
+dup_files.append(("files", (dup_roll + ".jpeg", real_img_1, "image/jpeg")))
+dup_files.append(("files", (dup_roll + ".jpeg", real_img_1, "image/jpeg")))
+if len(students) > 1:
+    dup_files.append(("files", (str(students[1]["roll_number"]) + ".jpeg", real_img_2, "image/jpeg")))
 
 r = requests.post(
     f"{BASE}/processing-sessions",

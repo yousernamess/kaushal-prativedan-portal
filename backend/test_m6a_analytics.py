@@ -147,7 +147,8 @@ from decimal import Decimal
 from app.core.database import SessionLocal, Base, engine
 from app.models import (
     AcademicYear, Assessment, AssessmentAttempt, AssessmentType,
-    AttemptQuestion, AttemptStatus, Question, School, Section, Student,
+    AttemptQuestion, AttemptStatus, ProcessingSession, ProcessingSessionStatus,
+    Question, School, Section, Student,
 )
 
 passed = 0
@@ -178,6 +179,7 @@ db.query(AttemptQuestion).filter(
 ).delete(synchronize_session="fetch")
 db.query(AssessmentAttempt).filter(AssessmentAttempt.assessment_id == 999).delete()
 db.query(Question).filter(Question.assessment_id == 999).delete()
+db.query(ProcessingSession).filter(ProcessingSession.assessment_id == 999).delete()
 db.query(Assessment).filter(Assessment.id == 999).delete()
 db.query(Student).filter(Student.school_id.in_(
     db.query(School.id).filter(School.name.in_(["Alpha School", "Beta School"]))
@@ -253,6 +255,15 @@ for qn, domain, correct in questions_data:
     questions.append(q)
 db.flush()
 
+# A real processing session for the attempts to reference (FK requirement)
+test_session = ProcessingSession(
+    assessment_id=999,
+    school_id=school_a.id,
+    status=ProcessingSessionStatus.COMPLETED,
+)
+db.add(test_session)
+db.flush()
+
 # Attempts with specific detected answers
 # Format: student, score, detected_answers (list of 10)
 attempts_data = [
@@ -272,7 +283,7 @@ for student, score, detected in attempts_data:
     att = AssessmentAttempt(
         assessment_id=999,
         student_id=student.id,
-        processing_session_id=1,  # dummy
+        processing_session_id=test_session.id,
         score=score,
         total_questions=10,
         percentage=Decimal(str(score)) / Decimal("10") * Decimal("100"),
@@ -455,14 +466,24 @@ test("16d. Section 6B avg pct", abs(ov_secB["average_percentage"] - 60.0) < 0.01
 # â”€â”€ Test 17: Assessment with no attempts â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 print("\n=== Test 17: Assessment with no attempts ===")
-# Assessment 3 exists but has 0 questions and 0 attempts
-ov_no_att = assessment_overview(db, 3)
-test("17a. No attempts â†’ 0 students", ov_no_att["total_students_assessed"] == 0,
-     f"Expected 0, got {ov_no_att['total_students_assessed']}")
-test("17b. No attempts â†’ 0 avg pct", ov_no_att["average_percentage"] == 0.0,
-     f"Expected 0.0, got {ov_no_att['average_percentage']}")
-test("17c. No attempts â†’ empty schools", ov_no_att["schools"] == [],
-     f"Expected [], got {ov_no_att['schools']}")
+# Find any existing assessment with 0 attempts (don't hardcode an ID — the
+# DB contents vary between environments)
+from app.models import AssessmentAttempt as _AA
+_no_att = None
+for _a in db.query(Assessment).filter(Assessment.is_deleted == False).all():
+    if db.query(_AA).filter(_AA.assessment_id == _a.id).count() == 0:
+        _no_att = _a
+        break
+if _no_att is None:
+    print("  SKIPPED: No assessment without attempts found in DB")
+else:
+    ov_no_att = assessment_overview(db, _no_att.id)
+    test("17a. No attempts â†’ 0 students", ov_no_att["total_students_assessed"] == 0,
+         f"Expected 0, got {ov_no_att['total_students_assessed']}")
+    test("17b. No attempts â†’ 0 avg pct", ov_no_att["average_percentage"] == 0.0,
+         f"Expected 0.0, got {ov_no_att['average_percentage']}")
+    test("17c. No attempts â†’ empty schools", ov_no_att["schools"] == [],
+         f"Expected [], got {ov_no_att['schools']}")
 
 
 # â”€â”€ Test 18: Single student â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -589,6 +610,8 @@ db.query(AttemptQuestion).filter(
     )
 ).delete(synchronize_session="fetch")
 db.query(AssessmentAttempt).filter(AssessmentAttempt.assessment_id == 999).delete()
+# Delete the processing session BEFORE the assessment (FK constraint)
+db.query(ProcessingSession).filter(ProcessingSession.assessment_id == 999).delete()
 db.query(Question).filter(Question.assessment_id == 999).delete()
 db.query(Assessment).filter(Assessment.id == 999).delete()
 db.query(Student).filter(Student.roll_number == 99).delete()

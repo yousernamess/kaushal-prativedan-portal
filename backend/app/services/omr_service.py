@@ -15,7 +15,9 @@ _OMR_SRC = Path(__file__).resolve().parent.parent.parent.parent / "omrExtractor"
 if str(_OMR_SRC) not in sys.path:
     sys.path.insert(0, str(_OMR_SRC))
 
+from align import align, find_markers  # noqa: E402
 from bubble_reader import read_omr, load_template  # noqa: E402
+from preprocess import load_image_from_path  # noqa: E402
 
 _TEMPLATE_PATH = (
     Path(__file__).resolve().parent.parent.parent.parent
@@ -70,6 +72,54 @@ def extract_omr(image_path: Path, question_count: int) -> dict[str, str | None]:
 
     if not image_path.exists():
         raise OMRProcessingError(f"OMR image file not found: {image_path.name}")
+
+    # Guard: multi-page PDFs are not valid OMR inputs. One file = one sheet;
+    # silently reading only page 1 would drop the other pages' data.
+    if image_path.suffix.lower() == ".pdf":
+        try:
+            import fitz
+
+            with fitz.open(image_path) as doc:
+                page_count = doc.page_count
+            if page_count > 1:
+                raise OMRProcessingError(
+                    f"{image_path.name}: multi-page PDF ({page_count} pages) is not "
+                    f"supported. Upload each OMR sheet as a separate single-page "
+                    f"image or PDF file."
+                )
+        except OMRProcessingError:
+            raise
+        except Exception as e:
+            raise OMRProcessingError(
+                f"Could not read PDF {image_path.name}: {type(e).__name__}: {e}"
+            ) from e
+
+    # Guard: verify page alignment BEFORE running bubble detection. The
+    # extractor's read_omr() only warns on alignment failure and proceeds with
+    # an unaligned image, which produces garbage scores. We run the same
+    # marker check the extractor uses and fail the sheet instead.
+    try:
+        image = load_image_from_path(str(image_path))
+    except Exception as e:
+        raise OMRProcessingError(
+            f"Could not load image {image_path.name}: {type(e).__name__}: {e}"
+        ) from e
+
+    try:
+        markers = find_markers(image)
+    except Exception as e:
+        raise OMRProcessingError(
+            f"OMR alignment check failed for {image_path.name}: "
+            f"{type(e).__name__}: {e}"
+        ) from e
+
+    missing = [c for c in ("top_left", "top_right", "bottom_left", "bottom_right") if c not in markers]
+    if missing:
+        raise OMRProcessingError(
+            f"OMR alignment failed for {image_path.name}: could not find corner "
+            f"markers {missing}. The scan may be cropped, skewed, or not an OMR "
+            f"sheet for the current template."
+        )
 
     try:
         result = read_omr(image_path, tpl, question_count=question_count)
