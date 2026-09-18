@@ -106,7 +106,10 @@ export function StepUpload({ files, onFilesChange }: Props) {
           Drag and drop OMR sheets here, or click to browse
         </p>
         <p className="mt-1 text-xs text-slate-500">
-          Supported: JPG, JPEG, PNG, BMP, TIFF, PDF — Named as ROLLNUMBER.extension (e.g. 101.jpg)
+          Supported: JPG, JPEG, PNG, BMP, TIFF, PDF — Named as STUDENTCODE.extension (e.g. 0607harshkhatri.jpg)
+        </p>
+        <p className="mt-1 text-xs text-slate-400">
+          Code format: 2-digit school number + 2-digit class + student name (no spaces)
         </p>
         <input
           ref={inputRef}

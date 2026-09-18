@@ -2,7 +2,7 @@
 
 # Database Design
 
-Database: PostgreSQL (Railway)
+Database: PostgreSQL (local install — Windows host, port 5432)
 ORM: SQLAlchemy 2.0
 Migrations: Alembic
 
@@ -149,14 +149,10 @@ ENDLINE  = "Endline"
 
 ## Migration
 
-Single migration: `20260805_01_initial_schema.py`
-
-Creates all tables in order:
-1. schools
-2. academic_years
-3. sections
-4. students
-5. assessments
-6. questions
+Migrations (in `backend/alembic/versions/`, applied in order):
+1. `20260805_01` — initial portal schema (schools, academic_years, sections, students, assessments, questions, batches, results, users, etc.)
+2. `20260809_01` — add question text and options to `questions`
+3. `20260810_01` — add OMR processing session and file tables
+4. `20260810_02` — add assessment attempt and attempt question tables
 
 Run with: `alembic upgrade head`

@@ -13,7 +13,7 @@ export function StudentInfoCard({ data }: Props) {
       <div className="grid grid-cols-1 gap-x-8 gap-y-2 sm:grid-cols-2">
         <InfoRow label="Name" value={data.student_name} />
         <InfoRow label="School" value={data.school_name} />
-        <InfoRow label="Roll Number" value={String(data.roll_number)} />
+        <InfoRow label="Student Code" value={String(data.student_code)} />
         <InfoRow label="Class" value={`Class ${data.current_class}`} />
         <InfoRow label="Section" value={data.current_section} />
       </div>

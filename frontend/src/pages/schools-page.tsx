@@ -24,6 +24,7 @@ function extractErrorMessage(err: unknown): string {
 
 const columns: CrudColumn[] = [
   { label: "School", render: (r) => String(r.name ?? "") },
+  { label: "Number", render: (r) => String(r.school_number ?? "").padStart(2, "0") },
   { label: "Students", render: (r) => String(r.student_count ?? 0) },
   { label: "Sections", render: (r) => String(r.section_count ?? 0) },
   {
@@ -143,10 +144,11 @@ export function SchoolsPage() {
     <CrudPage
       title="Schools"
       path="/schools"
-      defaults={{ name: "" }}
+      defaults={{ name: "", school_number: "" }}
       columns={columns}
       fieldConfig={{
         name: { label: "School Name", required: true, placeholder: "e.g. Sunrise Public School" },
+        school_number: { label: "School Number", required: true, placeholder: "e.g. 6 (used in student codes)" },
         id: { hidden: true },
         student_count: { hidden: true },
         section_count: { hidden: true },

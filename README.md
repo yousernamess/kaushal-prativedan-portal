@@ -8,7 +8,7 @@ Science Assessment Management System for NGOs/schools to automate OMR-based eval
 |---|---|
 | Frontend | React 19, TypeScript, Vite, TailwindCSS, shadcn/ui, React Router, TanStack Query, React Hook Form |
 | Backend | FastAPI, SQLAlchemy 2.0, Alembic, Pydantic |
-| Database | PostgreSQL (Railway) |
+| Database | PostgreSQL (local install) |
 | OMR | OpenCV (existing module, treated as black box) |
 
 ## Project Structure
@@ -92,7 +92,7 @@ The script automatically:
 
 - Python 3.12+
 - Node.js 18+
-- PostgreSQL (local install or Railway account)
+- PostgreSQL (local install; see the WSL note below)
 - Git (with submodule support)
 
 ### Manual Setup (if you skip the script)
@@ -136,6 +136,11 @@ npm run dev
 DATABASE_URL=postgresql+psycopg://postgres:password@host:port/dbname
 CORS_ORIGINS=http://localhost:5173
 ```
+
+> **WSL note:** the local PostgreSQL runs on the Windows host. If you run the
+> backend from WSL, `localhost` will not work — use the Windows host IP shown
+> by `ip route show default` (e.g. `172.26.224.1`). This IP can change after a
+> Windows reboot, so re-check it if the backend suddenly cannot connect.
 
 **Frontend** (`.env` in frontend/):
 ```

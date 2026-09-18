@@ -24,7 +24,7 @@ export type SchoolSummaryForAnalytics = {
 export type StudentInSchool = {
   student_id: number;
   student_name: string;
-  roll_number: number;
+  student_code: string;
   score: number;
   total_questions: number;
   percentage: number;
@@ -41,6 +41,16 @@ export type AssessmentOverview = {
   schools: SchoolSummaryForAnalytics[];
 };
 
+export type ClassBreakdown = {
+  class_number: number;
+  students_assessed: number;
+  average_score: number;
+  average_percentage: number;
+  highest_percentage: number;
+  lowest_percentage: number;
+  domains: DomainBreakdown[];
+};
+
 export type SchoolDetail = {
   assessment_id: number;
   school_id: number;
@@ -51,15 +61,37 @@ export type SchoolDetail = {
   highest_percentage: number;
   lowest_percentage: number;
   domains: DomainBreakdown[];
+  classes: ClassBreakdown[];
   school_rank: number | null;
   students: StudentInSchool[];
+};
+
+export type SchoolComparisonItem = {
+  school_id: number;
+  school_name: string;
+  school_number: number;
+  students_assessed: number;
+  average_score: number;
+  average_percentage: number;
+  highest_percentage: number;
+  lowest_percentage: number;
+  domains: DomainBreakdown[];
+  classes: ClassBreakdown[];
+};
+
+export type SchoolsComparison = {
+  assessment_id: number;
+  total_students_assessed: number;
+  average_percentage: number;
+  domains: DomainBreakdown[];
+  schools: SchoolComparisonItem[];
 };
 
 export type StudentDetail = {
   assessment_id: number;
   student_id: number;
   student_name: string;
-  roll_number: number;
+  student_code: string;
   school_id: number;
   school_name: string;
   current_class: number;
@@ -152,6 +184,9 @@ export const analyticsApi = {
 
   schoolDetail: (assessmentId: number, schoolId: number) =>
     api.get<SchoolDetail>(`/analytics/assessments/${assessmentId}/schools/${schoolId}`).then((r) => r.data),
+
+  schoolsComparison: (assessmentId: number) =>
+    api.get<SchoolsComparison>(`/analytics/assessments/${assessmentId}/schools-comparison`).then((r) => r.data),
 
   studentDetail: (assessmentId: number, studentId: number) =>
     api.get<StudentDetail>(`/analytics/assessments/${assessmentId}/students/${studentId}`).then((r) => r.data),

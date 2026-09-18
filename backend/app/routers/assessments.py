@@ -6,7 +6,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.database import get_db
-from app.models import AcademicYear, Assessment, Question
+from app.models import AcademicYear, Assessment, Question, QuestionDomain
 from app.schemas import AssessmentCreate, AssessmentRead, AssessmentUpdate, QuestionInput, QuestionRead
 
 # CSV column order (also serves as the export template header row).
@@ -45,6 +45,7 @@ def _parse_question_rows(rows: list[dict]) -> list[QuestionInput]:
         domain = str(raw.get("domain", "")).strip()
         if not domain:
             raise HTTPException(422, f"Row {idx}: domain is required")
+        domain = _canonical_domain(domain, idx)
         questions.append(
             QuestionInput(
                 question_number=number,
@@ -59,7 +60,23 @@ def _parse_question_rows(rows: list[dict]) -> list[QuestionInput]:
         )
     return questions
 
+def _canonical_domain(value: str, row_idx: int) -> str:
+    """Map a CSV domain cell to one of the 3 canonical domains (case-insensitive)."""
+    lowered = value.strip().lower()
+    for domain in QuestionDomain:
+        if lowered == domain.value.lower():
+            return domain.value
+    allowed = ", ".join(QuestionDomain.values())
+    raise HTTPException(422, f"Row {row_idx}: domain must be one of: {allowed}")
+
+
 router = APIRouter(prefix="/assessments", tags=["Assessments"])
+
+
+@router.get("/domains", response_model=list[str])
+def list_domains() -> list[str]:
+    """The 3 canonical assessment domains."""
+    return QuestionDomain.values()
 
 
 def assessment_or_404(assessment_id: int, db: Session, include_deleted: bool = False) -> Assessment:

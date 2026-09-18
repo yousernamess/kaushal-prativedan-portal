@@ -11,7 +11,7 @@ import {
 import type { DomainBreakdown } from "../../lib/analytics";
 
 // Fixed domain order for consistent radar chart display
-const DOMAIN_ORDER = ["Knowledge", "Understanding", "Application", "Analysis", "Evaluation"];
+const DOMAIN_ORDER = ["Experiential Learning", "Knowledge Base", "Analytical"];
 
 type Props = {
   studentDomains: DomainBreakdown[];

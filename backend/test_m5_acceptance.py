@@ -54,40 +54,40 @@ school = next(s for s in r.json() if s.get("student_count", 0) >= 20)
 school_id = school["id"]
 
 r = requests.get(f"{BASE}/students", params={"school_id": school_id})
-students = sorted(r.json(), key=lambda s: s["roll_number"])
+students = sorted(r.json(), key=lambda s: s["student_code"])
 print(f"  School: {school['name']} (id={school_id}), {len(students)} students")
 
 # Real sample images
 sample_101 = os.path.join(OMR_INPUT, "101.jpeg")
-sample_104 = os.path.join(OMR_INPUT, "104.jpeg")
+sample_104 = os.path.join(OMR_INPUT, "102.jpeg")
 test("101.jpeg exists", os.path.exists(sample_101))
-test("104.jpeg exists", os.path.exists(sample_104))
+test("102.jpeg exists", os.path.exists(sample_104))
 
 # ── Build batch: 18 real + 1 invalid filename + 1 corrupt image ───
 
 print("\n=== BUILD BATCH ===")
 batch_files = []
-student_map = {}  # roll_number -> student dict, for files we expect to process
+student_map = {}  # student_code -> student dict, for files we expect to process
 
 # 18 students with real OMR images (reuse 101.jpeg for first 10, 104.jpeg for next 8)
 for i, student in enumerate(students[:18]):
-    roll = student["roll_number"]
+    code = student["student_code"]
     source = sample_101 if i < 10 else sample_104
     with open(source, "rb") as f:
         data = f.read()
     ext = "jpeg"
-    fname = f"{roll}.{ext}"
+    fname = f"{code}.{ext}"
     batch_files.append(("files", (fname, data, "image/jpeg")))
-    student_map[roll] = student
+    student_map[code] = student
 
 # 1 invalid filename
 batch_files.append(("files", ("bad_name.jpg", b"x", "image/jpeg")))
 
 # 1 corrupt image (valid filename for student 19, but garbage bytes)
 if len(students) >= 20:
-    corrupt_roll = students[18]["roll_number"]
-    batch_files.append(("files", (f"{corrupt_roll}.jpeg", b"\xff\xd8\xff\xe0" + b"\x00" * 500, "image/jpeg")))
-    print(f"  Corrupt file: {corrupt_roll}.jpeg (fake JPEG header + zeros)")
+    corrupt_code = students[18]["student_code"]
+    batch_files.append(("files", (f"{corrupt_code}.jpeg", b"\xff\xd8\xff\xe0" + b"\x00" * 500, "image/jpeg")))
+    print(f"  Corrupt file: {corrupt_code}.jpeg (fake JPEG header + zeros)")
 
 print(f"  Total files: {len(batch_files)}")
 print(f"  Expected: 18 valid (real), 1 invalid filename, 1 corrupt image")
@@ -144,7 +144,7 @@ print(f"  Processed: {len(processed_files)}, Failed: {len(failed_files)}, Invali
 print("\n=== CRITERION 3: One attempt per successful file ===")
 for f in processed_files:
     att = f.get("attempt")
-    test(f"  {f['student_name']} (roll={f['roll_number']}) has attempt", att is not None)
+    test(f"  {f['student_name']} (code={f['student_code']}) has attempt", att is not None)
     if att:
         test(f"    Attempt status COMPLETED", att["status"] == "COMPLETED")
 
@@ -173,7 +173,7 @@ first_processed = processed_files[0]
 att = first_processed.get("attempt")
 if att:
     manual_score = 0
-    print(f"  Student: {first_processed['student_name']} (roll={first_processed['roll_number']})")
+    print(f"  Student: {first_processed['student_name']} (code={first_processed['student_code']})")
     for q in att["questions"]:
         q_key = f"Q{[k for k, v in answer_key.items() if True][0].split('Q')[1]}" if False else None
         # Find question number from question_id
@@ -218,11 +218,11 @@ if failed_files:
     for f in failed_files:
         print(f"  Failed: {f['original_filename']} — {f['error_message'][:80]}")
     # The corrupt image should be the one that failed
-    corrupt_rolls = {corrupt_roll} if len(students) >= 20 else set()
-    failed_rolls = {f["roll_number"] for f in failed_files}
+    corrupt_codes = {corrupt_code} if len(students) >= 20 else set()
+    failed_codes = {f["student_code"] for f in failed_files}
     test("Corrupt file is in failed set",
-         len(corrupt_rolls & failed_rolls) > 0 or len(failed_files) == 0,
-         f"Corrupt rolls: {corrupt_rolls}, Failed rolls: {failed_rolls}")
+         len(corrupt_codes & failed_codes) > 0 or len(failed_files) == 0,
+         f"Corrupt codes: {corrupt_codes}, Failed codes: {failed_codes}")
 
 
 # ── Criterion 9: Successful images deleted ─────────────────────────
@@ -233,7 +233,7 @@ if os.path.exists(upload_dir):
     remaining = os.listdir(upload_dir)
     print(f"  Files remaining in session dir: {remaining}")
 
-    successful_rolls = {f["roll_number"] for f in processed_files}
+    successful_codes = {f["student_code"] for f in processed_files}
     for f in processed_files:
         # The file should NOT exist on disk anymore
         fname = f["original_filename"]

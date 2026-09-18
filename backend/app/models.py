@@ -2,7 +2,7 @@ from datetime import datetime
 from enum import Enum
 from decimal import Decimal
 
-from sqlalchemy import Boolean, DateTime, Enum as SqlEnum, ForeignKey, Integer, Numeric, String, Text, UniqueConstraint, func
+from sqlalchemy import Boolean, CheckConstraint, DateTime, Enum as SqlEnum, ForeignKey, Integer, Numeric, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -11,6 +11,16 @@ from app.core.database import Base
 class AssessmentType(str, Enum):
     BASELINE = "Baseline"
     ENDLINE = "Endline"
+
+
+class QuestionDomain(str, Enum):
+    EXPERIENTIAL_LEARNING = "Experiential Learning"
+    KNOWLEDGE_BASE = "Knowledge Base"
+    ANALYTICAL = "Analytical"
+
+    @classmethod
+    def values(cls) -> list[str]:
+        return [d.value for d in cls]
 
 
 class ProcessingSessionStatus(str, Enum):
@@ -41,6 +51,7 @@ class School(TimestampMixin, Base):
     __tablename__ = "schools"
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(200), unique=True, index=True)
+    school_number: Mapped[int] = mapped_column(Integer, unique=True, index=True)
     students: Mapped[list["Student"]] = relationship(back_populates="school")
     sections: Mapped[list["Section"]] = relationship(back_populates="school")
 
@@ -71,10 +82,10 @@ class Section(TimestampMixin, Base):
 
 class Student(TimestampMixin, Base):
     __tablename__ = "students"
-    __table_args__ = (UniqueConstraint("school_id", "roll_number", name="uq_student_school_roll"),)
+    __table_args__ = (UniqueConstraint("student_code", name="uq_student_code"),)
     id: Mapped[int] = mapped_column(primary_key=True)
     school_id: Mapped[int] = mapped_column(ForeignKey("schools.id"), index=True)
-    roll_number: Mapped[int] = mapped_column(Integer, index=True)
+    student_code: Mapped[str] = mapped_column(String(200), unique=True, index=True)
     student_name: Mapped[str] = mapped_column(String(200))
     current_class: Mapped[int] = mapped_column(Integer)
     current_section: Mapped[str] = mapped_column(String(20))
@@ -99,7 +110,13 @@ class Assessment(TimestampMixin, Base):
 
 class Question(Base):
     __tablename__ = "questions"
-    __table_args__ = (UniqueConstraint("assessment_id", "question_number", name="uq_question_number"),)
+    __table_args__ = (
+        UniqueConstraint("assessment_id", "question_number", name="uq_question_number"),
+        CheckConstraint(
+            "domain IN ('Experiential Learning', 'Knowledge Base', 'Analytical')",
+            name="ck_question_domain",
+        ),
+    )
     id: Mapped[int] = mapped_column(primary_key=True)
     assessment_id: Mapped[int] = mapped_column(ForeignKey("assessments.id"), index=True)
     question_number: Mapped[int] = mapped_column(Integer)
@@ -141,7 +158,7 @@ class ProcessingFile(TimestampMixin, Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     session_id: Mapped[int] = mapped_column(ForeignKey("processing_sessions.id", ondelete="CASCADE"), index=True)
     original_filename: Mapped[str] = mapped_column(String(500))
-    roll_number: Mapped[int] = mapped_column(Integer)
+    student_code: Mapped[str | None] = mapped_column(String(200), nullable=True)
     student_id: Mapped[int | None] = mapped_column(ForeignKey("students.id"), nullable=True, index=True)
     status: Mapped[ProcessingFileStatus] = mapped_column(
         SqlEnum(ProcessingFileStatus), default=ProcessingFileStatus.PENDING
@@ -191,6 +208,10 @@ class AttemptQuestion(Base):
     __tablename__ = "attempt_questions"
     __table_args__ = (
         UniqueConstraint("attempt_id", "question_id", name="uq_attempt_question"),
+        CheckConstraint(
+            "domain IN ('Experiential Learning', 'Knowledge Base', 'Analytical')",
+            name="ck_attempt_question_domain",
+        ),
     )
     id: Mapped[int] = mapped_column(primary_key=True)
     attempt_id: Mapped[int] = mapped_column(

@@ -48,7 +48,7 @@ export function StudentRanking({ students, onSelectStudent }: Props) {
                   #{rankMap.get(s.student_id)}
                 </td>
                 <td className="px-4 py-3 font-medium text-slate-900">{s.student_name}</td>
-                <td className="px-4 py-3 text-slate-500">{s.roll_number}</td>
+                <td className="px-4 py-3 text-slate-500">{s.student_code}</td>
                 <td className="px-4 py-3 text-center text-slate-700">
                   {s.score}/{s.total_questions}
                 </td>
@@ -76,7 +76,7 @@ export function StudentRanking({ students, onSelectStudent }: Props) {
                 </span>
                 <div>
                   <p className="text-sm font-medium text-slate-900">{s.student_name}</p>
-                  <p className="text-xs text-slate-500">Roll {s.roll_number}</p>
+                  <p className="text-xs text-slate-500">Code {s.student_code}</p>
                 </div>
               </div>
               <div className="text-right">

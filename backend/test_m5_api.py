@@ -48,8 +48,8 @@ students = r.json()
 test("Has students", len(students) >= 2, f"Found {len(students)}")
 student1 = students[0]
 student2 = students[1]
-print(f"  Student 1: roll={student1['roll_number']}, name={student1['student_name']}")
-print(f"  Student 2: roll={student2['roll_number']}, name={student2['student_name']}")
+print(f"  Student 1: code={student1['student_code']}, name={student1['student_name']}")
+print(f"  Student 2: code={student2['student_code']}, name={student2['student_name']}")
 
 
 # ── Test 1: Create session with real OMR files ─────────────────────
@@ -77,9 +77,9 @@ test("Sample image 2 exists", sample2 is not None)
 if sample1 and sample2:
     # Upload files named after student roll numbers
     with open(sample1, "rb") as f:
-        test_files.append(("files", (f"{student1['roll_number']}.jpeg", f.read(), "image/jpeg")))
+        test_files.append(("files", (f"{student1['student_code']}.jpeg", f.read(), "image/jpeg")))
     with open(sample2, "rb") as f:
-        test_files.append(("files", (f"{student2['roll_number']}.jpeg", f.read(), "image/jpeg")))
+        test_files.append(("files", (f"{student2['student_code']}.jpeg", f.read(), "image/jpeg")))
     # Add an invalid file
     test_files.append(("files", ("invalid_name.jpg", b"bad", "image/jpeg")))
 

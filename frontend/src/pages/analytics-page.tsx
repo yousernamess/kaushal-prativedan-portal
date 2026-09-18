@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useQuery, useQueries } from "@tanstack/react-query";
 import { analyticsApi, type StudentInSchool } from "../lib/analytics";
 import { FilterBar } from "../components/analytics/filter-bar";
@@ -7,6 +7,13 @@ import { DomainBreakdownChart } from "../components/analytics/domain-breakdown";
 import { StudentRanking } from "../components/analytics/student-ranking";
 import { StudentDetailModal } from "../components/analytics/student-detail-modal";
 import { QuestionTable } from "../components/analytics/question-table";
+import {
+  ChartCard,
+  ClassPerformanceBar,
+  DomainComparisonBar,
+  SchoolComparisonBar,
+} from "../components/analytics/bar-charts";
+import { DomainSharePie, PerformanceBandPie } from "../components/analytics/pie-charts";
 
 export function AnalyticsPage() {
   // Filter state
@@ -41,6 +48,13 @@ export function AnalyticsPage() {
     enabled: assessId > 0,
   });
 
+  // Inter-school comparison (all schools for the assessment)
+  const comparisonQ = useQuery({
+    queryKey: ["analytics", "schoolsComparison", assessId],
+    queryFn: () => analyticsApi.schoolsComparison(assessId),
+    enabled: assessId > 0,
+  });
+
   // For student ranking: if a specific school is selected, fetch that school's detail.
   // If "All Schools", fetch detail for each school from the overview and merge.
   const overview = overviewQ.data;
@@ -60,6 +74,54 @@ export function AnalyticsPage() {
   const allStudents: StudentInSchool[] = schoolDetailQueries
     .filter((q) => q.data)
     .flatMap((q) => q.data!.students);
+
+  // ── Chart data (all derived from real API responses) ────────────
+
+  const comparison = comparisonQ.data;
+
+  const schoolComparisonData = (comparison?.schools ?? []).map((s) => ({
+    schoolId: s.school_id,
+    label: String(s.school_number).padStart(2, "0"),
+    name: s.school_name,
+    percentage: s.average_percentage,
+  }));
+
+  const domainComparisonData = (comparison?.schools ?? []).map((s) => ({
+    label: String(s.school_number).padStart(2, "0"),
+    name: s.school_name,
+    domains: s.domains,
+  }));
+
+  // Class-wise: for the selected school use its own breakdown; otherwise
+  // aggregate every school's class results (weighted by students assessed).
+  const classPerformanceData = (() => {
+    if (schId) {
+      const detail = schoolDetailQueries.find((q) => q.data && q.data.school_id === schId)?.data;
+      return (detail?.classes ?? []).map((c) => ({
+        label: `Class ${c.class_number}`,
+        name: `${detail?.school_name} — Class ${c.class_number}`,
+        percentage: c.average_percentage,
+      }));
+    }
+    const byClass = new Map<number, { pctSum: number; students: number }>();
+    for (const school of comparison?.schools ?? []) {
+      for (const c of school.classes) {
+        const agg = byClass.get(c.class_number) ?? { pctSum: 0, students: 0 };
+        agg.pctSum += c.average_percentage * c.students_assessed;
+        agg.students += c.students_assessed;
+        byClass.set(c.class_number, agg);
+      }
+    }
+    return [...byClass.entries()]
+      .sort(([a], [b]) => a - b)
+      .map(([classNumber, agg]) => ({
+        label: `Class ${classNumber}`,
+        name: `Class ${classNumber} — all schools`,
+        percentage: agg.students > 0 ? Number((agg.pctSum / agg.students).toFixed(2)) : 0,
+      }));
+  })();
+
+  const bandPercentages = allStudents.map((s) => s.percentage);
 
   // ── Loading / error states ─────────────────────────────────────
 
@@ -138,6 +200,58 @@ export function AnalyticsPage() {
               </h3>
               <div className="rounded-lg border bg-white p-4 shadow-sm">
                 <DomainBreakdownChart domains={overview.domains} />
+              </div>
+            </section>
+          )}
+
+          {/* Inter-School Comparison */}
+          {schoolComparisonData.length > 0 && (
+            <section className="space-y-4">
+              <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-slate-500">
+                Inter-School Comparison
+              </h3>
+              <div className="grid gap-4 lg:grid-cols-2">
+                <ChartCard title="School Performance" subtitle="Average % per school (labels show the school number)">
+                  <SchoolComparisonBar data={schoolComparisonData} />
+                </ChartCard>
+                <ChartCard title="Domain-wise School Comparison" subtitle="Average % per domain for each school">
+                  <DomainComparisonBar schools={domainComparisonData} />
+                </ChartCard>
+              </div>
+            </section>
+          )}
+
+          {/* Class-wise Performance */}
+          {classPerformanceData.length > 0 && (
+            <section>
+              <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-slate-500">
+                Class-wise Performance
+              </h3>
+              <ChartCard
+                title={schId ? "Class Performance — Selected School" : "Class Performance — All Schools"}
+                subtitle="Average % per class"
+              >
+                <ClassPerformanceBar data={classPerformanceData} />
+              </ChartCard>
+            </section>
+          )}
+
+          {/* Distribution Charts */}
+          {(overview.domains.length > 0 || bandPercentages.length > 0) && (
+            <section className="space-y-4">
+              <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-slate-500">
+                Distribution
+              </h3>
+              <div className="grid gap-4 lg:grid-cols-2">
+                <ChartCard
+                  title="Correct Answers by Domain"
+                  subtitle={schId ? "Selected school" : "All schools"}
+                >
+                  <DomainSharePie domains={overview.domains} />
+                </ChartCard>
+                <ChartCard title="Student Performance Bands" subtitle="Share of students by score band">
+                  <PerformanceBandPie percentages={bandPercentages} />
+                </ChartCard>
               </div>
             </section>
           )}

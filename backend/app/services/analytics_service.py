@@ -130,6 +130,29 @@ def _domain_breakdown_from_attempts(
     return result
 
 
+def _class_breakdown_from_attempts(attempts: list[AssessmentAttempt]) -> list[dict]:
+    """Group attempts by the student's current class and compute stats per class."""
+    class_groups: dict[int, list[AssessmentAttempt]] = {}
+    for att in attempts:
+        class_groups.setdefault(att.student.current_class, []).append(att)
+
+    result = []
+    for class_number in sorted(class_groups.keys()):
+        class_atts = class_groups[class_number]
+        pcts = [_to_float(a.percentage) for a in class_atts]
+        scores = [a.score for a in class_atts]
+        result.append({
+            "class_number": class_number,
+            "students_assessed": len(class_atts),
+            "average_score": round(sum(scores) / len(scores), 2),
+            "average_percentage": round(sum(pcts) / len(pcts), 2),
+            "highest_percentage": max(pcts),
+            "lowest_percentage": min(pcts),
+            "domains": _domain_breakdown_from_attempts(class_atts),
+        })
+    return result
+
+
 # ── Core query helpers ─────────────────────────────────────────────
 
 
@@ -298,6 +321,62 @@ def assessment_overview(
     }
 
 
+def schools_comparison(
+    db: Session,
+    assessment_id: int,
+) -> dict:
+    """Inter-school comparison for an assessment.
+
+    Returns per-school overall, domain-wise, and class-wise stats for
+    inter-school comparison charts.
+    """
+    _verify_assessment(db, assessment_id)
+
+    attempts = _get_completed_attempts(db, assessment_id)
+
+    overall_domains = _domain_breakdown_from_attempts(attempts) if attempts else []
+    overall_avg = (
+        round(sum(_to_float(a.percentage) for a in attempts) / len(attempts), 2)
+        if attempts else 0.0
+    )
+
+    school_groups: dict[int, list[AssessmentAttempt]] = {}
+    for att in attempts:
+        sid = att.student.school_id
+        school_groups.setdefault(sid, []).append(att)
+
+    school_items = []
+    for sid, school_atts in school_groups.items():
+        student = school_atts[0].student
+        school = student.school
+        pcts = [_to_float(a.percentage) for a in school_atts]
+        scores = [a.score for a in school_atts]
+        school_items.append({
+            "school_id": sid,
+            "school_name": school.name,
+            "school_number": school.school_number,
+            "students_assessed": len(school_atts),
+            "average_score": round(sum(scores) / len(scores), 2),
+            "average_percentage": round(sum(pcts) / len(pcts), 2),
+            "highest_percentage": max(pcts),
+            "lowest_percentage": min(pcts),
+            "domains": _domain_breakdown_from_attempts(school_atts),
+            "classes": _class_breakdown_from_attempts(school_atts),
+        })
+
+    school_items.sort(
+        key=lambda s: (-s["average_percentage"], s["school_name"])
+    )
+
+    return {
+        "assessment_id": assessment_id,
+        "total_students_assessed": len(attempts),
+        "average_percentage": overall_avg,
+        "domains": overall_domains,
+        "schools": school_items,
+    }
+
+
 def school_analytics(
     db: Session,
     assessment_id: int,
@@ -323,6 +402,7 @@ def school_analytics(
             "highest_percentage": 0.0,
             "lowest_percentage": 0.0,
             "domains": [],
+            "classes": [],
             "school_rank": None,
             "students": [],
         }
@@ -350,7 +430,7 @@ def school_analytics(
         students.append({
             "student_id": att.student_id,
             "student_name": att.student.student_name,
-            "roll_number": att.student.roll_number,
+            "student_code": att.student.student_code,
             "score": att.score,
             "total_questions": att.total_questions,
             "percentage": _to_float(att.percentage),
@@ -367,6 +447,7 @@ def school_analytics(
         "highest_percentage": max(percentages),
         "lowest_percentage": min(percentages),
         "domains": domains,
+        "classes": _class_breakdown_from_attempts(attempts),
         "school_rank": school_rank,
         "students": students,
     }
@@ -456,7 +537,7 @@ def student_analytics(
         "assessment_id": assessment_id,
         "student_id": student_id,
         "student_name": student.student_name,
-        "roll_number": student.roll_number,
+        "student_code": student.student_code,
         "school_id": student.school_id,
         "school_name": student.school.name,
         "current_class": student.current_class,

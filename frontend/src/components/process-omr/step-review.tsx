@@ -77,7 +77,7 @@ export function StepReview({ session }: Props) {
               <thead className="bg-slate-50 text-slate-500">
                 <tr>
                   <th className="px-4 py-3 font-medium">Filename</th>
-                  <th className="px-4 py-3 font-medium">Roll Number</th>
+                  <th className="px-4 py-3 font-medium">Student Code</th>
                   <th className="px-4 py-3 font-medium">Student</th>
                   <th className="px-4 py-3 font-medium">Status</th>
                 </tr>
@@ -86,7 +86,7 @@ export function StepReview({ session }: Props) {
                 {validFiles.map((f: ProcessingFile) => (
                   <tr key={f.id} className="border-t">
                     <td className="px-4 py-3 font-medium text-slate-900">{f.original_filename}</td>
-                    <td className="px-4 py-3 text-slate-700">{f.roll_number}</td>
+                    <td className="px-4 py-3 text-slate-700">{f.student_code}</td>
                     <td className="px-4 py-3 text-slate-700">{f.student_name ?? "—"}</td>
                     <td className="px-4 py-3">
                       <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${FILE_STATUS_COLORS[f.status]}`}>
@@ -120,7 +120,7 @@ export function StepReview({ session }: Props) {
               <thead className="bg-slate-50 text-slate-500">
                 <tr>
                   <th className="px-4 py-3 font-medium">Filename</th>
-                  <th className="px-4 py-3 font-medium">Roll Number</th>
+                  <th className="px-4 py-3 font-medium">Student Code</th>
                   <th className="px-4 py-3 font-medium">Reason</th>
                 </tr>
               </thead>
@@ -128,7 +128,7 @@ export function StepReview({ session }: Props) {
                 {invalidFiles.map((f: ProcessingFile) => (
                   <tr key={f.id} className="border-t">
                     <td className="px-4 py-3 font-medium text-slate-900">{f.original_filename}</td>
-                    <td className="px-4 py-3 text-slate-700">{f.roll_number || "—"}</td>
+                    <td className="px-4 py-3 text-slate-700">{f.student_code || "—"}</td>
                     <td className="px-4 py-3 text-sm text-red-600">{f.error_message}</td>
                   </tr>
                 ))}

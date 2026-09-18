@@ -2,7 +2,7 @@ import type { DomainBreakdown } from "../../lib/analytics";
 import { ReportRadarChart } from "./radar-chart";
 
 // Fixed domain order
-const DOMAIN_ORDER = ["Knowledge", "Understanding", "Application", "Analysis", "Evaluation"];
+const DOMAIN_ORDER = ["Experiential Learning", "Knowledge Base", "Analytical"];
 
 type Props = {
   domains: DomainBreakdown[];

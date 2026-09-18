@@ -37,7 +37,13 @@ router = APIRouter(prefix="/processing-sessions", tags=["Processing Sessions"])
 
 UPLOAD_ROOT = Path(__file__).resolve().parent.parent.parent / "output" / "uploads"
 SUPPORTED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".tiff", ".pdf"}
-FILENAME_REGEX = re.compile(r"^(\d+)\.(jpg|jpeg|png|bmp|tiff|pdf)$", re.IGNORECASE)
+# Student code filename: [2-digit school number][2-digit class][student identifier]
+# e.g. "0607harshkhatri.jpg" = school 06, class 07, identifier "harshkhatri"
+FILENAME_REGEX = re.compile(r"^(\d{2})(\d{2})([a-zA-Z0-9]+)\.(jpg|jpeg|png|bmp|tiff|pdf)$", re.IGNORECASE)
+FILENAME_FORMAT_HINT = (
+    "Invalid filename format — expected: SCHOOLNUMBER CLASSNUMBER studentname.extension "
+    "(e.g. 0607harshkhatri.jpg = school 06, class 07)"
+)
 MAX_RETRY_COUNT = 3
 
 
@@ -80,7 +86,7 @@ def _file_to_dict(f: ProcessingFile) -> dict:
         "id": f.id,
         "session_id": f.session_id,
         "original_filename": f.original_filename,
-        "roll_number": f.roll_number,
+        "student_code": f.student_code,
         "student_id": f.student_id,
         "student_name": f.student.student_name if f.student else None,
         "status": f.status.value,
@@ -300,56 +306,78 @@ async def create_session(
         with open(file_path, "wb") as f:
             f.write(content)
 
-        # Parse roll number
+        # Parse the student code from the filename
         match = FILENAME_REGEX.match(filename)
         if not match:
             pf = ProcessingFile(
                 session_id=session.id,
                 original_filename=filename,
-                roll_number=0,
+                student_code=None,
                 status=ProcessingFileStatus.INVALID,
-                error_message="Invalid filename format — expected: ROLLNUMBER.extension (e.g. 101.jpg)",
+                error_message=FILENAME_FORMAT_HINT,
             )
             db.add(pf)
             session.files.append(pf)
             continue
 
-        roll_number = int(match.group(1))
-        if roll_number <= 0:
+        school_number = int(match.group(1))
+        class_number = int(match.group(2))
+        identifier = match.group(3).lower()
+        parsed_code = f"{school_number:02d}{class_number:02d}{identifier}"
+
+        def _invalid(message: str) -> None:
             pf = ProcessingFile(
                 session_id=session.id,
                 original_filename=filename,
-                roll_number=roll_number,
+                student_code=parsed_code,
                 status=ProcessingFileStatus.INVALID,
-                error_message="Roll number must be a positive integer",
+                error_message=message,
             )
             db.add(pf)
             session.files.append(pf)
+
+        # Resolve the school from the code's school number
+        code_school = (
+            db.query(School).filter(School.school_number == school_number).first()
+        )
+        if not code_school:
+            _invalid(f"No school found with number {school_number:02d} (from filename '{filename}')")
             continue
 
-        # Find student in selected school
+        if code_school.id != school_id:
+            _invalid(
+                f"Filename '{filename}' belongs to school {school_number:02d} ('{code_school.name}') "
+                f"but the session was created for '{school.name}'"
+            )
+            continue
+
+        # Exact match on the full student code
         student = (
             db.query(Student)
-            .filter(Student.school_id == school_id, Student.roll_number == roll_number)
+            .filter(Student.student_code == parsed_code, Student.school_id == school_id)
             .first()
         )
         if not student:
-            pf = ProcessingFile(
-                session_id=session.id,
-                original_filename=filename,
-                roll_number=roll_number,
-                status=ProcessingFileStatus.INVALID,
-                error_message=f"No student found with roll number {roll_number} in the selected school",
-            )
-            db.add(pf)
-            session.files.append(pf)
+            # Identifier may exist in this school but under a different class
+            candidates = [
+                s for s in school.students
+                if s.student_code.endswith(identifier) and len(s.student_code) > len(identifier)
+            ]
+            if candidates:
+                other = candidates[0]
+                _invalid(
+                    f"Student '{other.student_name}' at '{school.name}' is in class {other.current_class}, "
+                    f"but the filename '{filename}' says class {class_number:02d}"
+                )
+            else:
+                _invalid(f"No student found for code '{parsed_code}' (from filename '{filename}')")
             continue
 
         # Create valid file record (will check duplicates after flush)
         pf = ProcessingFile(
             session_id=session.id,
             original_filename=filename,
-            roll_number=roll_number,
+            student_code=parsed_code,
             student_id=student.id,
             status=ProcessingFileStatus.PENDING,
         )
@@ -358,19 +386,19 @@ async def create_session(
 
     db.flush()
 
-    # ── Check for duplicate roll numbers in this batch ──
+    # ── Check for duplicate student codes in this batch ──
     session_files = [f for f in session.files]
-    roll_seen: dict[int, list[ProcessingFile]] = {}
+    code_seen: dict[str, list[ProcessingFile]] = {}
     for f in session_files:
         if f.status in (ProcessingFileStatus.INVALID,):
             continue
-        roll_seen.setdefault(f.roll_number, []).append(f)
+        code_seen.setdefault(f.student_code or "", []).append(f)
 
-    for roll_number, file_list in roll_seen.items():
-        if len(file_list) > 1:
+    for code, file_list in code_seen.items():
+        if code and len(file_list) > 1:
             for f in file_list:
                 f.status = ProcessingFileStatus.INVALID
-                f.error_message = f"Duplicate roll number {roll_number} in this batch. Only one OMR sheet per student is allowed."
+                f.error_message = f"Duplicate student code {code} in this batch. Only one OMR sheet per student is allowed."
                 f.student_id = None
 
     # ── Counters ──
@@ -450,7 +478,7 @@ def validate_session(session_id: int, db: Session = Depends(get_db)):
             student = db.get(Student, f.student_id)
             if not student or student.school_id != session.school_id:
                 f.status = ProcessingFileStatus.INVALID
-                f.error_message = f"Student with roll number {f.roll_number} no longer exists in the selected school"
+                f.error_message = f"Student with code '{f.student_code}' no longer exists in the selected school"
                 f.student_id = None
             else:
                 f.status = ProcessingFileStatus.VALID

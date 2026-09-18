@@ -14,23 +14,23 @@ Test dataset:
     Student D2: class=7, section=A
 
   Assessment 800: "Test Alpha" (Baseline, 2026-27)
-    Q1: text="What is 2+2?", A="3", B="4", C="5", D="6", correct=B, domain=Math
-    Q2: text="Capital of France?", A="London", B="Paris", C="Berlin", D="Rome", correct=B, domain=Geo
+    Q1: text="What is 2+2?", A="3", B="4", C="5", D="6", correct=B, domain=Experiential Learning
+    Q2: text="Capital of France?", A="London", B="Paris", C="Berlin", D="Rome", correct=B, domain=Knowledge Base
 
   Assessment 801: "Test Beta" (Endline, TEST-6B)
-    Q1: text="What is 2+2?", A="3", B="4", C="5", D="6", correct=B, domain=Math
+    Q1: text="What is 2+2?", A="3", B="4", C="5", D="6", correct=B, domain=Experiential Learning
        (SAME question as Assessment 800 Q1 — same text+options, different correct_option? NO, same correct)
-    Q2: text="Capital of France?", A="London", B="Paris", C="Berlin", D="Rome", correct=B, domain=Geo
+    Q2: text="Capital of France?", A="London", B="Paris", C="Berlin", D="Rome", correct=B, domain=Knowledge Base
        (SAME as 800 Q2)
-    Q3: text="What is 3+3?", A="5", B="6", C="7", D="8", correct=B, domain=Math
+    Q3: text="What is 3+3?", A="5", B="6", C="7", D="8", correct=B, domain=Experiential Learning
        (NEW question, not in 800)
 
   Assessment 802: "Test Gamma" (Baseline, TEST-6B)
-    Q1: text="What is 2+2?", A="three", B="four", C="five", D="six", correct=B, domain=Math
+    Q1: text="What is 2+2?", A="three", B="four", C="five", D="six", correct=B, domain=Experiential Learning
        (DIFFERENT options from 800 Q1 — "three" vs "3" — should NOT match)
-    Q2: text="Capital of France?", A="London", B="Paris", C="Berlin", D="Rome", correct=A, domain=Geo
+    Q2: text="Capital of France?", A="London", B="Paris", C="Berlin", D="Rome", correct=A, domain=Knowledge Base
        (SAME text+options as 800 Q2, but correct_option changed to A — SHOULD match)
-    Q3: text="", A="", B="", C="", D="", correct=A, domain=X
+    Q3: text="", A="", B="", C="", D="", correct=A, domain=Analytical
        (MALFORMED — all empty — should NOT participate in history)
 
   Attempts (all COMPLETED):
@@ -101,7 +101,8 @@ from decimal import Decimal
 from app.core.database import SessionLocal, Base, engine
 from app.models import (
     AcademicYear, Assessment, AssessmentAttempt, AssessmentType,
-    AttemptQuestion, AttemptStatus, Question, School, Student,
+    AttemptQuestion, AttemptStatus, ProcessingSession, ProcessingSessionStatus,
+    Question, School, Student,
 )
 
 passed = 0
@@ -128,15 +129,15 @@ db = SessionLocal()
 db.query(AttemptQuestion).filter(
     AttemptQuestion.attempt_id.in_(
         db.query(AssessmentAttempt.id).filter(
-            AssessmentAttempt.assessment_id.in_([800, 801, 802])
+            AssessmentAttempt.assessment_id.in_([800, 801, 802, 803])
         )
     )
 ).delete(synchronize_session="fetch")
 db.query(AssessmentAttempt).filter(
-    AssessmentAttempt.assessment_id.in_([800, 801, 802])
+    AssessmentAttempt.assessment_id.in_([800, 801, 802, 803])
 ).delete()
-db.query(Question).filter(Question.assessment_id.in_([800, 801, 802])).delete()
-db.query(Assessment).filter(Assessment.id.in_([800, 801, 802])).delete()
+db.query(Question).filter(Question.assessment_id.in_([800, 801, 802, 803])).delete()
+db.query(Assessment).filter(Assessment.id.in_([800, 801, 802, 803])).delete()
 db.query(Student).filter(Student.school_id.in_(
     db.query(School.id).filter(School.name.in_(["Gamma School", "Delta School"]))
 )).delete(synchronize_session="fetch")
@@ -158,21 +159,21 @@ db.add(ay_test)
 db.flush()
 
 # Schools
-school_a = School(name="Gamma School")
-school_b = School(name="Delta School")
+school_a = School(name="Gamma School", school_number=3)
+school_b = School(name="Delta School", school_number=4)
 db.add_all([school_a, school_b])
 db.flush()
 
 # Students
-g1 = Student(school_id=school_a.id, roll_number=1, student_name="G1",
+g1 = Student(school_id=school_a.id, student_code="0306g1", student_name="G1",
              current_class=6, current_section="A")
-g2 = Student(school_id=school_a.id, roll_number=2, student_name="G2",
+g2 = Student(school_id=school_a.id, student_code="0306g2", student_name="G2",
              current_class=6, current_section="A")
-g3 = Student(school_id=school_a.id, roll_number=3, student_name="G3",
+g3 = Student(school_id=school_a.id, student_code="0306g3", student_name="G3",
              current_class=6, current_section="B")
-d1 = Student(school_id=school_b.id, roll_number=1, student_name="D1",
+d1 = Student(school_id=school_b.id, student_code="0407d1", student_name="D1",
              current_class=6, current_section="A")
-d2 = Student(school_id=school_b.id, roll_number=2, student_name="D2",
+d2 = Student(school_id=school_b.id, student_code="0407d2", student_name="D2",
              current_class=7, current_section="A")
 db.add_all([g1, g2, g3, d1, d2])
 db.flush()
@@ -188,12 +189,12 @@ db.flush()
 q800_1 = Question(
     assessment_id=800, question_number=1, question_text="What is 2+2?",
     option_a="3", option_b="4", option_c="5", option_d="6",
-    correct_option="B", domain="Math",
+    correct_option="B", domain="Experiential Learning",
 )
 q800_2 = Question(
     assessment_id=800, question_number=2, question_text="Capital of France?",
     option_a="London", option_b="Paris", option_c="Berlin", option_d="Rome",
-    correct_option="B", domain="Geo",
+    correct_option="B", domain="Knowledge Base",
 )
 db.add_all([q800_1, q800_2])
 db.flush()
@@ -209,17 +210,17 @@ db.flush()
 q801_1 = Question(
     assessment_id=801, question_number=1, question_text="What is 2+2?",
     option_a="3", option_b="4", option_c="5", option_d="6",
-    correct_option="B", domain="Math",
+    correct_option="B", domain="Experiential Learning",
 )
 q801_2 = Question(
     assessment_id=801, question_number=2, question_text="Capital of France?",
     option_a="London", option_b="Paris", option_c="Berlin", option_d="Rome",
-    correct_option="B", domain="Geo",
+    correct_option="B", domain="Knowledge Base",
 )
 q801_3 = Question(
     assessment_id=801, question_number=3, question_text="What is 3+3?",
     option_a="5", option_b="6", option_c="7", option_d="8",
-    correct_option="B", domain="Math",
+    correct_option="B", domain="Experiential Learning",
 )
 db.add_all([q801_1, q801_2, q801_3])
 db.flush()
@@ -235,19 +236,27 @@ db.flush()
 q802_1 = Question(
     assessment_id=802, question_number=1, question_text="What is 2+2?",
     option_a="three", option_b="four", option_c="five", option_d="six",
-    correct_option="B", domain="Math",
+    correct_option="B", domain="Experiential Learning",
 )
 q802_2 = Question(
     assessment_id=802, question_number=2, question_text="Capital of France?",
     option_a="London", option_b="Paris", option_c="Berlin", option_d="Rome",
-    correct_option="A", domain="Geo",
+    correct_option="A", domain="Knowledge Base",
 )
 q802_3 = Question(
     assessment_id=802, question_number=3, question_text=None,
     option_a=None, option_b=None, option_c=None, option_d=None,
-    correct_option="A", domain="X",
+    correct_option="A", domain="Analytical",
 )
 db.add_all([q802_1, q802_2, q802_3])
+db.flush()
+
+# A real processing session for the attempts to reference (FK requirement)
+m6b_session = ProcessingSession(
+    assessment_id=800, school_id=school_a.id,
+    status=ProcessingSessionStatus.COMPLETED,
+)
+db.add(m6b_session)
 db.flush()
 
 # Helper to create attempt + questions
@@ -255,7 +264,7 @@ def make_attempt(student, assessment, score, answers, questions):
     """answers: list of detected answers, questions: list of Question objects."""
     att = AssessmentAttempt(
         assessment_id=assessment.id, student_id=student.id,
-        processing_session_id=1, score=score, total_questions=len(questions),
+        processing_session_id=m6b_session.id, score=score, total_questions=len(questions),
         percentage=Decimal(str(score)) / Decimal(str(len(questions))) * Decimal("100"),
         status=AttemptStatus.COMPLETED,
     )
@@ -339,8 +348,14 @@ test("5b. Q2 correct=0", q802_by_num[2]["correct"] == 0,
 # ── Test 6: No completed attempts ──────────────────────────────────
 
 print("\n=== Test 6: No completed attempts ===")
-# Assessment 3 exists but has no attempts
-qa_empty = question_analytics(db, 3)
+# Assessment 803 exists but has no attempts
+a803 = Assessment(
+    id=803, name="Test Empty", assessment_type=AssessmentType.BASELINE,
+    academic_year_id=ay_existing.id, class_number=6,
+)
+db.add(a803)
+db.flush()
+qa_empty = question_analytics(db, 803)
 test("6. Empty assessment has no questions", qa_empty["questions"] == [],
      f"Expected [], got {len(qa_empty['questions'])} questions")
 test("6b. 0 students assessed", qa_empty["total_students_assessed"] == 0,
@@ -441,7 +456,7 @@ test("16. Same text+options, different correct_option DOES match",
 # ── Test 17: Different domain with identical text/options ──────────
 
 print("\n=== Test 17: Domain does not affect fingerprint ===")
-# 800 Q2 and 802 Q2 have same fingerprint but both are "Geo"
+# 800 Q2 and 802 Q2 have same fingerprint but both are "Knowledge Base"
 # Verify domain is NOT part of fingerprint
 test("17. Domain not in fingerprint", True)  # confirmed by test 16 above
 
@@ -573,15 +588,16 @@ print("\n=== Cleanup ===")
 db.query(AttemptQuestion).filter(
     AttemptQuestion.attempt_id.in_(
         db.query(AssessmentAttempt.id).filter(
-            AssessmentAttempt.assessment_id.in_([800, 801, 802])
+            AssessmentAttempt.assessment_id.in_([800, 801, 802, 803])
         )
     )
 ).delete(synchronize_session="fetch")
 db.query(AssessmentAttempt).filter(
-    AssessmentAttempt.assessment_id.in_([800, 801, 802])
+    AssessmentAttempt.assessment_id.in_([800, 801, 802, 803])
 ).delete()
-db.query(Question).filter(Question.assessment_id.in_([800, 801, 802])).delete()
-db.query(Assessment).filter(Assessment.id.in_([800, 801, 802])).delete()
+db.query(ProcessingSession).filter(ProcessingSession.assessment_id.in_([800, 801, 802, 803])).delete(synchronize_session="fetch")
+db.query(Question).filter(Question.assessment_id.in_([800, 801, 802, 803])).delete()
+db.query(Assessment).filter(Assessment.id.in_([800, 801, 802, 803])).delete()
 db.query(Student).filter(Student.school_id.in_(
     db.query(School.id).filter(School.name.in_(["Gamma School", "Delta School"]))
 )).delete(synchronize_session="fetch")

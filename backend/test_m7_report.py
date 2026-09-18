@@ -15,7 +15,8 @@ from decimal import Decimal
 from app.core.database import SessionLocal, Base, engine
 from app.models import (
     AcademicYear, Assessment, AssessmentAttempt, AssessmentType,
-    AttemptQuestion, AttemptStatus, Question, School, Section, Student,
+    AttemptQuestion, AttemptStatus, ProcessingSession, ProcessingSessionStatus,
+    Question, School, Section, Student,
 )
 from app.services.analytics_service import student_analytics, student_report_questions
 
@@ -40,6 +41,7 @@ Base.metadata.create_all(bind=engine)
 db = SessionLocal()
 
 # Clean previous M7 test data
+db.query(ProcessingSession).filter(ProcessingSession.assessment_id == 998).delete(synchronize_session="fetch")
 db.query(AttemptQuestion).filter(
     AttemptQuestion.attempt_id.in_(
         db.query(AssessmentAttempt.id).filter(AssessmentAttempt.assessment_id == 998)
@@ -66,14 +68,14 @@ db.add(ay)
 db.flush()
 
 # School
-school = School(name="M7 Alpha School")
+school = School(name="M7 Alpha School", school_number=5)
 db.add(school)
 db.flush()
 
 # Student
 student = Student(
     school_id=school.id,
-    roll_number=101,
+    student_code="0507m7teststudent",
     student_name="M7 Test Student",
     current_class=7,
     current_section="A",
@@ -95,8 +97,8 @@ db.flush()
 # Questions
 questions = []
 for i, (domain, correct) in enumerate([
-    ("Knowledge", "A"), ("Knowledge", "B"), ("Knowledge", "C"),
-    ("Application", "D"), ("Application", "A"),
+    ("Knowledge Base", "A"), ("Knowledge Base", "B"), ("Knowledge Base", "C"),
+    ("Experiential Learning", "D"), ("Experiential Learning", "A"),
 ], start=1):
     q = Question(
         assessment_id=998,
@@ -111,11 +113,19 @@ for i, (domain, correct) in enumerate([
     questions.append(q)
 db.flush()
 
+# A real processing session for the attempt to reference (FK requirement)
+m7_session = ProcessingSession(
+    assessment_id=998, school_id=school.id,
+    status=ProcessingSessionStatus.COMPLETED,
+)
+db.add(m7_session)
+db.flush()
+
 # Attempt: 3/5 correct (Q1=A✓, Q2=B✓, Q3=wrong, Q4=D✓, Q5=wrong)
 attempt = AssessmentAttempt(
     assessment_id=998,
     student_id=student.id,
-    processing_session_id=1,
+    processing_session_id=m7_session.id,
     score=3,
     total_questions=5,
     percentage=Decimal("60.00"),
@@ -186,13 +196,13 @@ test(
 sd = {d["domain"]: d for d in result["school_domains"]}
 od = {d["domain"]: d for d in result["overall_domains"]}
 test(
-    "school_domains has Knowledge",
-    "Knowledge" in sd,
+    "school_domains has Knowledge Base",
+    "Knowledge Base" in sd,
     f"keys: {list(sd.keys())}",
 )
 test(
-    "overall_domains has Application",
-    "Application" in od,
+    "overall_domains has Experiential Learning",
+    "Experiential Learning" in od,
     f"keys: {list(od.keys())}",
 )
 
@@ -211,7 +221,7 @@ test(
 q1 = qr["questions"][0]
 test("Q1 question_number", q1["question_number"] == 1, f"got {q1['question_number']}")
 test("Q1 question_text present", q1["question_text"] is not None, "None")
-test("Q1 domain", q1["domain"] == "Knowledge", f"got {q1['domain']}")
+test("Q1 domain", q1["domain"] == "Knowledge Base", f"got {q1['domain']}")
 test("Q1 detected_answer", q1["detected_answer"] == "A", f"got {q1['detected_answer']}")
 test("Q1 correct_answer", q1["correct_answer"] == "A", f"got {q1['correct_answer']}")
 test("Q1 is_correct", q1["is_correct"] is True, f"got {q1['is_correct']}")

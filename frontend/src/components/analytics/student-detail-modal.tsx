@@ -26,7 +26,7 @@ export function StudentDetailModal({ assessmentId, studentId, onClose }: Props) 
             <h3 className="text-lg font-bold text-slate-900">Student Analytics</h3>
             {data && (
               <p className="text-sm text-slate-500">
-                {data.student_name} · Roll {data.roll_number}
+                {data.student_name} · Code {data.student_code}
               </p>
             )}
           </div>

@@ -33,8 +33,8 @@ export function ReportsPage() {
   });
   const students: StudentInSchool[] = schoolDetailQ.data?.students ?? [];
 
-  // Sort students by roll number
-  const sortedStudents = [...students].sort((a, b) => a.roll_number - b.roll_number);
+  // Sort students by student code
+  const sortedStudents = [...students].sort((a, b) => a.student_code.localeCompare(b.student_code));
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
@@ -109,7 +109,7 @@ export function ReportsPage() {
           <table className="w-full text-left text-sm">
             <thead className="bg-slate-50 text-slate-500">
               <tr>
-                <th className="px-4 py-3 font-medium">Roll No.</th>
+                <th className="px-4 py-3 font-medium">Student Code</th>
                 <th className="px-4 py-3 font-medium">Student Name</th>
                 <th className="px-4 py-3 font-medium text-center">Score</th>
                 <th className="px-4 py-3 font-medium text-center">Percentage</th>
@@ -119,7 +119,7 @@ export function ReportsPage() {
             <tbody>
               {sortedStudents.map((s) => (
                 <tr key={s.student_id} className="border-t transition-colors hover:bg-slate-50">
-                  <td className="px-4 py-3 font-medium text-slate-800">{s.roll_number}</td>
+                  <td className="px-4 py-3 font-medium text-slate-800">{s.student_code}</td>
                   <td className="px-4 py-3 text-slate-700">{s.student_name}</td>
                   <td className="px-4 py-3 text-center text-slate-700">
                     {s.score}/{s.total_questions}

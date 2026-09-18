@@ -2,7 +2,7 @@ import re
 from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from app.models import AssessmentType, AttemptStatus, ProcessingFileStatus, ProcessingSessionStatus
+from app.models import AssessmentType, AttemptStatus, ProcessingFileStatus, ProcessingSessionStatus, QuestionDomain
 
 
 class ORMModel(BaseModel):
@@ -11,6 +11,7 @@ class ORMModel(BaseModel):
 
 class SchoolBase(BaseModel):
     name: str = Field(min_length=1, max_length=200)
+    school_number: int = Field(ge=1, le=99)
 
 
 class SchoolCreate(SchoolBase): pass
@@ -66,7 +67,6 @@ class SectionRead(SectionBase, ORMModel): id: int
 
 class StudentBase(BaseModel):
     school_id: int
-    roll_number: int = Field(gt=0)
     student_name: str = Field(min_length=1, max_length=200)
     current_class: int = Field(ge=6, le=8)
     current_section: str = Field(min_length=1, max_length=20)
@@ -76,6 +76,7 @@ class StudentCreate(StudentBase): pass
 class StudentUpdate(StudentBase): pass
 class StudentRead(StudentBase, ORMModel):
     id: int
+    student_code: str
     school_name: str
 
 
@@ -87,7 +88,7 @@ class QuestionInput(BaseModel):
     option_c: str | None = Field(default=None, max_length=200)
     option_d: str | None = Field(default=None, max_length=200)
     correct_option: str = Field(pattern="^[A-D]$")
-    domain: str = Field(min_length=1, max_length=100)
+    domain: QuestionDomain
 
 
 class AssessmentBase(BaseModel):
@@ -157,7 +158,7 @@ class ProcessingFileRead(ORMModel):
     id: int
     session_id: int
     original_filename: str
-    roll_number: int
+    student_code: str | None
     student_id: int | None
     student_name: str | None = None
     status: ProcessingFileStatus
@@ -247,7 +248,7 @@ class SchoolSummaryForAnalytics(BaseModel):
 class StudentInSchool(BaseModel):
     student_id: int
     student_name: str
-    roll_number: int
+    student_code: str
     score: int
     total_questions: int
     percentage: float
@@ -264,6 +265,16 @@ class AssessmentOverviewResponse(BaseModel):
     schools: list[SchoolSummaryForAnalytics]
 
 
+class ClassBreakdown(BaseModel):
+    class_number: int
+    students_assessed: int
+    average_score: float
+    average_percentage: float
+    highest_percentage: float
+    lowest_percentage: float
+    domains: list[DomainBreakdown]
+
+
 class SchoolAnalyticsResponse(BaseModel):
     assessment_id: int
     school_id: int
@@ -274,15 +285,37 @@ class SchoolAnalyticsResponse(BaseModel):
     highest_percentage: float
     lowest_percentage: float
     domains: list[DomainBreakdown]
+    classes: list[ClassBreakdown]
     school_rank: int | None
     students: list[StudentInSchool]
+
+
+class SchoolComparisonItem(BaseModel):
+    school_id: int
+    school_name: str
+    school_number: int
+    students_assessed: int
+    average_score: float
+    average_percentage: float
+    highest_percentage: float
+    lowest_percentage: float
+    domains: list[DomainBreakdown]
+    classes: list[ClassBreakdown]
+
+
+class SchoolsComparisonResponse(BaseModel):
+    assessment_id: int
+    total_students_assessed: int
+    average_percentage: float
+    domains: list[DomainBreakdown]
+    schools: list[SchoolComparisonItem]
 
 
 class StudentAnalyticsResponse(BaseModel):
     assessment_id: int
     student_id: int
     student_name: str
-    roll_number: int
+    student_code: str
     school_id: int
     school_name: str
     current_class: int

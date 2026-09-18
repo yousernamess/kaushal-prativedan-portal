@@ -92,11 +92,9 @@ export const CLASS_OPTIONS = [
 export const ANSWER_OPTIONS = ["A", "B", "C", "D"];
 
 export const DOMAIN_OPTIONS = [
-  { value: "Knowledge", label: "Knowledge" },
-  { value: "Understanding", label: "Understanding" },
-  { value: "Application", label: "Application" },
-  { value: "Analysis", label: "Analysis" },
-  { value: "Evaluation", label: "Evaluation" },
+  { value: "Experiential Learning", label: "Experiential Learning" },
+  { value: "Knowledge Base", label: "Knowledge Base" },
+  { value: "Analytical", label: "Analytical" },
 ];
 
 // ── API Functions ──────────────────────────────────────────────────
@@ -105,6 +103,9 @@ export const assessmentApi = {
   // List assessments with optional filters
   list: (params?: { academic_year_id?: number; class_number?: number }) =>
     api.get<Assessment[]>("/assessments", { params }).then((r) => r.data),
+
+  // The 3 canonical assessment domains (single source of truth: backend)
+  domains: () => api.get<string[]>("/assessments/domains").then((r) => r.data),
 
   // Get single assessment with questions
   get: (id: number) =>

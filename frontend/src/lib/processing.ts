@@ -62,7 +62,7 @@ export type ProcessingFile = {
   id: number;
   session_id: number;
   original_filename: string;
-  roll_number: number;
+  student_code: string | null;
   student_id: number | null;
   student_name: string | null;
   status: ProcessingFileStatus;

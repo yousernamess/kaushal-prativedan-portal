@@ -9,6 +9,7 @@ from app.schemas import (
     QuestionAnalyticsResponse,
     QuestionHistoryResponse,
     SchoolAnalyticsResponse,
+    SchoolsComparisonResponse,
     StudentAnalyticsResponse,
     StudentReportQuestionsResponse,
 )
@@ -17,6 +18,7 @@ from app.services.analytics_service import (
     question_analytics,
     question_history,
     school_analytics,
+    schools_comparison,
     student_analytics,
     student_report_questions,
 )
@@ -61,6 +63,22 @@ def get_school_analytics(
     """Analytics for a specific school in a specific assessment."""
     try:
         result = school_analytics(db, assessment_id, school_id)
+    except ValueError as e:
+        raise HTTPException(404, str(e))
+    return result
+
+
+@router.get(
+    "/assessments/{assessment_id}/schools-comparison",
+    response_model=SchoolsComparisonResponse,
+)
+def get_schools_comparison(
+    assessment_id: int,
+    db: Session = Depends(get_db),
+):
+    """Inter-school comparison: overall, domain-wise, and class-wise stats per school."""
+    try:
+        result = schools_comparison(db, assessment_id)
     except ValueError as e:
         raise HTTPException(404, str(e))
     return result

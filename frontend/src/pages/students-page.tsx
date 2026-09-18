@@ -8,6 +8,7 @@ import { SearchBar } from "../components/common/search-bar";
 import { DeleteConfirmationDialog } from "../components/common/delete-confirmation-dialog";
 import { useToast } from "../components/common/toast";
 import { api } from "../lib/api";
+import { studentCodePreview } from "../lib/master-data";
 import type { School, Section, Student } from "../lib/master-data";
 
 /* ── helpers ─────────────────────────────────────────────────────── */
@@ -58,7 +59,7 @@ function StudentForm({
 }: {
   open: boolean;
   title: string;
-  values: { roll_number: string; student_name: string; school_id: string; current_class: string; current_section: string };
+  values: { student_name: string; school_id: string; current_class: string; current_section: string };
   schools: School[];
   sectionsData: Section[];
   loading: boolean;
@@ -82,7 +83,10 @@ function StudentForm({
     (s) => String(s.school_id) === form.school_id && String(s.class_number) === form.current_class
   );
 
-  const isValid = form.roll_number && form.student_name && form.school_id && form.current_class && form.current_section;
+  const isValid = form.student_name && form.school_id && form.current_class && form.current_section;
+
+  const selectedSchool = schools.find((s) => String(s.id) === form.school_id);
+  const codePreview = studentCodePreview(selectedSchool?.school_number, form.current_class, form.student_name);
 
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/40 p-4">
@@ -94,17 +98,14 @@ function StudentForm({
 
         {error && <div className="rounded-md bg-red-50 p-3 text-sm text-red-700">{error}</div>}
 
-        {/* Roll Number */}
-        <label className="block text-sm">
-          <span className="font-medium text-slate-700">Roll Number <span className="text-red-500">*</span></span>
-          <input
-            className="mt-1 h-10 w-full rounded border border-slate-300 px-3 text-sm"
-            type="number"
-            value={form.roll_number}
-            onChange={(e) => set("roll_number", e.target.value)}
-            placeholder="e.g. 14"
-          />
-        </label>
+        {/* Student Code — derived automatically */}
+        <div className="rounded-md bg-slate-50 p-3 text-sm">
+          <span className="font-medium text-slate-700">Student Code (auto-generated)</span>
+          <p className="mt-1 font-mono text-base text-slate-900">{codePreview || "— enter name, school and class —"}</p>
+          <p className="mt-1 text-xs text-slate-500">
+            Format: 2-digit school number + 2-digit class + student name (no spaces). Also used in OMR sheet filenames.
+          </p>
+        </div>
 
         {/* Student Name */}
         <label className="block text-sm">
@@ -231,7 +232,8 @@ function ImportDialog({
             <p className="text-sm text-slate-600">Upload a CSV containing your student roster.</p>
             <div className="rounded-lg bg-slate-50 p-3 text-xs text-slate-500">
               <p className="font-medium text-slate-600">Expected columns:</p>
-              <p>Roll Number, Student Name, School, Class, Section</p>
+              <p>Student Name, School, Class, Section</p>
+              <p className="mt-1 text-slate-400">Student codes are generated automatically (school number + class + name).</p>
               <p className="mt-1 text-slate-400">Tip: Use the "Template" button above to download a ready-to-fill CSV.</p>
             </div>
           </>
@@ -341,7 +343,7 @@ export function StudentsPage() {
   const [importOpen, setImportOpen] = useState(false);
 
   // Form state for add
-  const [addForm, setAddForm] = useState({ roll_number: "", student_name: "", school_id: "", current_class: "", current_section: "" });
+  const [addForm, setAddForm] = useState({ student_name: "", school_id: "", current_class: "", current_section: "" });
 
   // Queries
   const schools = useQuery({ queryKey: ["schools"], queryFn: () => api.get<School[]>("/schools").then((r) => r.data) });
@@ -362,7 +364,6 @@ export function StudentsPage() {
   const createStudent = useMutation({
     mutationFn: (v: Record<string, unknown>) => api.post("/students", {
       school_id: Number(v.school_id),
-      roll_number: Number(v.roll_number),
       student_name: v.student_name,
       current_class: Number(v.current_class),
       current_section: v.current_section,
@@ -378,7 +379,6 @@ export function StudentsPage() {
   const updateStudent = useMutation({
     mutationFn: (v: Record<string, unknown>) => api.put(`/students/${editing!.id}`, {
       school_id: Number(v.school_id),
-      roll_number: Number(v.roll_number),
       student_name: v.student_name,
       current_class: Number(v.current_class),
       current_section: v.current_section,
@@ -418,12 +418,12 @@ export function StudentsPage() {
 
   // Template download
   const downloadTemplate = () => {
-    download(new Blob(["Roll Number,Student Name,School,Class,Section\r\n"], { type: "text/csv" }), "students-template.csv");
+    download(new Blob(["Student Name,School,Class,Section\r\n"], { type: "text/csv" }), "students-template.csv");
   };
 
   // Open add dialog
   const openAdd = () => {
-    setAddForm({ roll_number: "", student_name: "", school_id: String(schools.data?.[0]?.id ?? ""), current_class: "6", current_section: "" });
+    setAddForm({ student_name: "", school_id: String(schools.data?.[0]?.id ?? ""), current_class: "6", current_section: "" });
     setAddOpen(true);
   };
 
@@ -433,7 +433,6 @@ export function StudentsPage() {
   };
 
   const openEditForm = editing ? {
-    roll_number: String(editing.roll_number),
     student_name: editing.student_name,
     school_id: String(editing.school_id),
     current_class: String(editing.current_class),
@@ -530,7 +529,7 @@ export function StudentsPage() {
         <DataTable
           rows={students.data}
           columns={[
-            { label: "Roll No.", render: (r) => String(r.roll_number) },
+            { label: "Student Code", render: (r) => r.student_code },
             { label: "Student Name", render: (r) => r.student_name },
             { label: "School", render: (r) => r.school_name },
             { label: "Class", render: (r) => `Class ${r.current_class}` },

@@ -65,7 +65,7 @@ if not school:
     print("ERROR: No school with students found.")
     sys.exit(1)
 
-students = sorted(school.students, key=lambda s: s.roll_number)
+students = sorted(school.students, key=lambda s: s.student_code)
 print(f"Using school: {school.name} (id={school.id}, {len(students)} students)")
 
 

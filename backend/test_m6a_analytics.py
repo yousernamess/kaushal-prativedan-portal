@@ -14,16 +14,16 @@ Test dataset (created in setUp):
   Assessment: "Science Test" (10 questions, 2 domains)
 
   Questions:
-    Q1: domain=Knowledge,  correct=A
-    Q2: domain=Knowledge,  correct=B
-    Q3: domain=Knowledge,  correct=C
-    Q4: domain=Knowledge,  correct=D
-    Q5: domain=Knowledge,  correct=A
-    Q6: domain=Application, correct=B
-    Q7: domain=Application, correct=C
-    Q8: domain=Application, correct=D
-    Q9: domain=Application, correct=A
-    Q10: domain=Application, correct=B
+    Q1: domain=Knowledge Base,  correct=A
+    Q2: domain=Knowledge Base,  correct=B
+    Q3: domain=Knowledge Base,  correct=C
+    Q4: domain=Knowledge Base,  correct=D
+    Q5: domain=Knowledge Base,  correct=A
+    Q6: domain=Analytical, correct=B
+    Q7: domain=Analytical, correct=C
+    Q8: domain=Analytical, correct=D
+    Q9: domain=Analytical, correct=A
+    Q10: domain=Analytical, correct=B
 
   Attempts (detected answers):
     Alice:   A B C D A | B C D A B â†’ 8/10 (Q6=wrong, Q9=wrong)
@@ -200,8 +200,8 @@ db.add(ay)
 db.flush()
 
 # Schools
-school_a = School(name="Alpha School")
-school_b = School(name="Beta School")
+school_a = School(name="Alpha School", school_number=1)
+school_b = School(name="Beta School", school_number=2)
 db.add_all([school_a, school_b])
 db.flush()
 
@@ -214,15 +214,15 @@ db.add_all([
 db.flush()
 
 # Students
-alice = Student(school_id=school_a.id, roll_number=1, student_name="Alice",
+alice = Student(school_id=school_a.id, student_code="0106alice", student_name="Alice",
                 current_class=6, current_section="A")
-bob = Student(school_id=school_a.id, roll_number=2, student_name="Bob",
+bob = Student(school_id=school_a.id, student_code="0106bob", student_name="Bob",
               current_class=6, current_section="A")
-charlie = Student(school_id=school_a.id, roll_number=3, student_name="Charlie",
+charlie = Student(school_id=school_a.id, student_code="0106charlie", student_name="Charlie",
                   current_class=6, current_section="B")
-diana = Student(school_id=school_b.id, roll_number=1, student_name="Diana",
+diana = Student(school_id=school_b.id, student_code="0207diana", student_name="Diana",
                 current_class=7, current_section="A")
-eve = Student(school_id=school_b.id, roll_number=2, student_name="Eve",
+eve = Student(school_id=school_b.id, student_code="0207eve", student_name="Eve",
               current_class=7, current_section="A")
 db.add_all([alice, bob, charlie, diana, eve])
 db.flush()
@@ -240,10 +240,10 @@ db.flush()
 
 # Questions (10 questions, 2 domains)
 questions_data = [
-    (1, "Knowledge", "A"), (2, "Knowledge", "B"), (3, "Knowledge", "C"),
-    (4, "Knowledge", "D"), (5, "Knowledge", "A"),
-    (6, "Application", "B"), (7, "Application", "C"), (8, "Application", "D"),
-    (9, "Application", "A"), (10, "Application", "B"),
+    (1, "Knowledge Base", "A"), (2, "Knowledge Base", "B"), (3, "Knowledge Base", "C"),
+    (4, "Knowledge Base", "D"), (5, "Knowledge Base", "A"),
+    (6, "Analytical", "B"), (7, "Analytical", "C"), (8, "Analytical", "D"),
+    (9, "Analytical", "A"), (10, "Analytical", "B"),
 ]
 questions = []
 for qn, domain, correct in questions_data:
@@ -334,14 +334,14 @@ test("4. Student total_questions", sa["total_questions"] == 10,
 
 # Domain breakdown for Alice
 alice_domains = {d["domain"]: d for d in sa["domains"]}
-test("5a. Alice Knowledge correct", alice_domains["Knowledge"]["correct"] == 5,
-     f"Expected 5, got {alice_domains['Knowledge']['correct']}")
-test("5b. Alice Knowledge pct", abs(alice_domains["Knowledge"]["percentage"] - 100.0) < 0.01,
-     f"Expected 100.0, got {alice_domains['Knowledge']['percentage']}")
-test("5c. Alice Application correct", alice_domains["Application"]["correct"] == 3,
-     f"Expected 3, got {alice_domains['Application']['correct']}")
-test("5d. Alice Application pct", abs(alice_domains["Application"]["percentage"] - 60.0) < 0.01,
-     f"Expected 60.0, got {alice_domains['Application']['percentage']}")
+test("5a. Alice Knowledge correct", alice_domains["Knowledge Base"]["correct"] == 5,
+     f"Expected 5, got {alice_domains['Knowledge Base']['correct']}")
+test("5b. Alice Knowledge pct", abs(alice_domains["Knowledge Base"]["percentage"] - 100.0) < 0.01,
+     f"Expected 100.0, got {alice_domains['Knowledge Base']['percentage']}")
+test("5c. Alice Application correct", alice_domains["Analytical"]["correct"] == 3,
+     f"Expected 3, got {alice_domains['Analytical']['correct']}")
+test("5d. Alice Application pct", abs(alice_domains["Analytical"]["percentage"] - 60.0) < 0.01,
+     f"Expected 60.0, got {alice_domains['Analytical']['percentage']}")
 
 
 # â”€â”€ Test 6-8: Student rank & percentile (Alice) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -384,16 +384,16 @@ test("11e. Lowest percentage", abs(ov["lowest_percentage"] - 60.0) < 0.01,
 
 # Domain breakdown
 ov_domains = {d["domain"]: d for d in ov["domains"]}
-test("12a. Knowledge correct (all)", ov_domains["Knowledge"]["correct"] == 23,
-     f"Expected 23, got {ov_domains['Knowledge']['correct']}")
-test("12b. Knowledge total (all)", ov_domains["Knowledge"]["total"] == 25,
-     f"Expected 25, got {ov_domains['Knowledge']['total']}")
-test("12c. Knowledge pct", abs(ov_domains["Knowledge"]["percentage"] - 92.0) < 0.01,
-     f"Expected 92.0, got {ov_domains['Knowledge']['percentage']}")
-test("12d. Application correct (all)", ov_domains["Application"]["correct"] == 16,
-     f"Expected 16, got {ov_domains['Application']['correct']}")
-test("12e. Application pct", abs(ov_domains["Application"]["percentage"] - 64.0) < 0.01,
-     f"Expected 64.0, got {ov_domains['Application']['percentage']}")
+test("12a. Knowledge correct (all)", ov_domains["Knowledge Base"]["correct"] == 23,
+     f"Expected 23, got {ov_domains['Knowledge Base']['correct']}")
+test("12b. Knowledge total (all)", ov_domains["Knowledge Base"]["total"] == 25,
+     f"Expected 25, got {ov_domains['Knowledge Base']['total']}")
+test("12c. Knowledge pct", abs(ov_domains["Knowledge Base"]["percentage"] - 92.0) < 0.01,
+     f"Expected 92.0, got {ov_domains['Knowledge Base']['percentage']}")
+test("12d. Application correct (all)", ov_domains["Analytical"]["correct"] == 16,
+     f"Expected 16, got {ov_domains['Analytical']['correct']}")
+test("12e. Application pct", abs(ov_domains["Analytical"]["percentage"] - 64.0) < 0.01,
+     f"Expected 64.0, got {ov_domains['Analytical']['percentage']}")
 
 # School summaries
 school_summaries = {s["school_id"]: s for s in ov["schools"]}
@@ -588,7 +588,7 @@ except ValueError:
 # Student without attempt for this assessment
 try:
     # Create a student with no attempt
-    fake = Student(school_id=school_a.id, roll_number=99, student_name="Ghost",
+    fake = Student(school_id=school_a.id, student_code="0106ghost", student_name="Ghost",
                    current_class=6, current_section="A")
     db.add(fake)
     db.flush()
@@ -614,7 +614,7 @@ db.query(AssessmentAttempt).filter(AssessmentAttempt.assessment_id == 999).delet
 db.query(ProcessingSession).filter(ProcessingSession.assessment_id == 999).delete()
 db.query(Question).filter(Question.assessment_id == 999).delete()
 db.query(Assessment).filter(Assessment.id == 999).delete()
-db.query(Student).filter(Student.roll_number == 99).delete()
+db.query(Student).filter(Student.student_code == "0106ghost").delete()
 test_ay = db.query(AcademicYear).filter(AcademicYear.name == "TEST-M6A").first()
 if test_ay:
     db.delete(test_ay)

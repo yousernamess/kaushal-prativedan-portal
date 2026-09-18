@@ -81,7 +81,7 @@ print(f"  Using school: {school['name']} (id={school_id}, students={school['stud
 r = requests.get(f"{BASE}/students", params={"school_id": school_id})
 students = r.json()
 test("Has students", len(students) > 0, f"Found {len(students)}")
-print(f"  Students: {[s['roll_number'] for s in students[:5]]}")
+print(f"  Students: {[s['student_code'] for s in students[:5]]}")
 
 
 # ── Test 2: Create session with valid files ───────────────────────
@@ -89,8 +89,8 @@ print(f"  Students: {[s['roll_number'] for s in students[:5]]}")
 print("\n=== Test 2: Create session with valid and invalid files ===")
 # Create test files using real OMR images for valid entries
 test_files = []
-first_student_roll = str(students[0]["roll_number"])
-second_student_roll = str(students[1]["roll_number"]) if len(students) > 1 else "999"
+first_student_code = str(students[0]["student_code"])
+second_student_code = str(students[1]["student_code"]) if len(students) > 1 else "9909unknown"
 
 # Load real OMR images for valid files
 with open(_SAMPLE_1, "rb") as f:
@@ -99,8 +99,8 @@ with open(_SAMPLE_2, "rb") as f:
     real_img_2 = f.read()
 
 # Valid files (real OMR images)
-test_files.append(("files", (first_student_roll + ".jpeg", real_img_1, "image/jpeg")))
-test_files.append(("files", (second_student_roll + ".jpeg", real_img_2, "image/jpeg")))
+test_files.append(("files", (first_student_code + ".jpeg", real_img_1, "image/jpeg")))
+test_files.append(("files", (second_student_code + ".jpeg", real_img_2, "image/jpeg")))
 # Invalid filename
 test_files.append(("files", ("invalid_name.jpg", real_img_1, "image/jpeg")))
 # Unsupported extension
@@ -174,12 +174,12 @@ else:
 print("\n=== Test 5: Duplicate roll number detection ===")
 # Use a roll number that actually exists in the selected school, so the
 # duplicate check (not the "no student found" check) is what triggers.
-dup_roll = str(students[0]["roll_number"])
+dup_code = str(students[0]["student_code"])
 dup_files = []
-dup_files.append(("files", (dup_roll + ".jpeg", real_img_1, "image/jpeg")))
-dup_files.append(("files", (dup_roll + ".jpeg", real_img_1, "image/jpeg")))
+dup_files.append(("files", (dup_code + ".jpeg", real_img_1, "image/jpeg")))
+dup_files.append(("files", (dup_code + ".jpeg", real_img_1, "image/jpeg")))
 if len(students) > 1:
-    dup_files.append(("files", (str(students[1]["roll_number"]) + ".jpeg", real_img_2, "image/jpeg")))
+    dup_files.append(("files", (str(students[1]["student_code"]) + ".jpeg", real_img_2, "image/jpeg")))
 
 r = requests.post(
     f"{BASE}/processing-sessions",

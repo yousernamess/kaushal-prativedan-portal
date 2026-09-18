@@ -72,7 +72,7 @@ export function StepResults({ session, onNewSession }: Props) {
             <table className="w-full text-left text-sm">
               <thead className="bg-slate-50 text-slate-500">
                 <tr>
-                  <th className="px-4 py-3 font-medium">Roll Number</th>
+                  <th className="px-4 py-3 font-medium">Student Code</th>
                   <th className="px-4 py-3 font-medium">Student</th>
                   <th className="px-4 py-3 font-medium text-center">Score</th>
                   <th className="px-4 py-3 font-medium text-center">Percentage</th>
@@ -86,7 +86,7 @@ export function StepResults({ session, onNewSession }: Props) {
                     const att = f.attempt;
                     return (
                       <tr key={f.id} className="border-t">
-                        <td className="px-4 py-3 text-slate-700">{f.roll_number}</td>
+                        <td className="px-4 py-3 text-slate-700">{f.student_code}</td>
                         <td className="px-4 py-3 font-medium text-slate-900">{f.student_name ?? "—"}</td>
                         <td className="px-4 py-3 text-center font-medium text-slate-900">
                           {att ? `${att.score}/${att.total_questions}` : "—"}
@@ -136,7 +136,7 @@ export function StepResults({ session, onNewSession }: Props) {
               <thead className="bg-slate-50 text-slate-500">
                 <tr>
                   <th className="px-4 py-3 font-medium">Filename</th>
-                  <th className="px-4 py-3 font-medium">Roll Number</th>
+                  <th className="px-4 py-3 font-medium">Student Code</th>
                   <th className="px-4 py-3 font-medium">Error</th>
                   <th className="px-4 py-3 font-medium">Retries</th>
                 </tr>
@@ -145,7 +145,7 @@ export function StepResults({ session, onNewSession }: Props) {
                 {failedFiles.map((f: ProcessingFile) => (
                   <tr key={f.id} className="border-t">
                     <td className="px-4 py-3 font-medium text-slate-900">{f.original_filename}</td>
-                    <td className="px-4 py-3 text-slate-700">{f.roll_number}</td>
+                    <td className="px-4 py-3 text-slate-700">{f.student_code}</td>
                     <td className="px-4 py-3 text-sm text-red-600">{f.error_message}</td>
                     <td className="px-4 py-3 text-slate-500">{f.retry_count}/{3}</td>
                   </tr>
@@ -170,7 +170,7 @@ export function StepResults({ session, onNewSession }: Props) {
               <thead className="bg-slate-50 text-slate-500">
                 <tr>
                   <th className="px-4 py-3 font-medium">Filename</th>
-                  <th className="px-4 py-3 font-medium">Roll Number</th>
+                  <th className="px-4 py-3 font-medium">Student Code</th>
                   <th className="px-4 py-3 font-medium">Reason</th>
                 </tr>
               </thead>
@@ -180,7 +180,7 @@ export function StepResults({ session, onNewSession }: Props) {
                   .map((f: ProcessingFile) => (
                     <tr key={f.id} className="border-t">
                       <td className="px-4 py-3 font-medium text-slate-900">{f.original_filename}</td>
-                      <td className="px-4 py-3 text-slate-700">{f.roll_number || "—"}</td>
+                      <td className="px-4 py-3 text-slate-700">{f.student_code || "—"}</td>
                       <td className="px-4 py-3 text-sm text-orange-600">{f.error_message}</td>
                     </tr>
                   ))}
